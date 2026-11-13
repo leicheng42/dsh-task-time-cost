@@ -22,6 +22,8 @@ export interface EstimateSnapshot {
   elapsedActiveMs: number;
   elapsedPausedMs: number;
   remainingMs: Span | null;
+  /** Nominal work scenario at route performance centers; not a confidence bound. */
+  remainingTypicalMs?: number | null;
   estimatedTotalMs: Span | null;
   estimateOrigin: 'heuristic' | 'public-measured' | 'local-measured' | 'mixed';
   localPerformanceSamples: number;
@@ -67,6 +69,7 @@ export interface HistoryItem {
 export interface RetainedTimeForecast {
   taskKey: string;
   remainingMs: Span;
+  remainingTypicalMs?: number | null;
   estimatedTotalMs: Span | null;
   updatedAt: number;
 }
@@ -130,5 +133,5 @@ export interface EstimatorRemote {
   manage(action: ManagementAction, payload: string, signal?: AbortSignal): Promise<RemoteResult<ManagementResult>>;
 }
 export type RemoteResult<T> = { ok: true; value: T } | { ok: false; error: { message: string; code: string } };
-export const ALGORITHM_VERSION = 'p0-0.2.9';
+export const ALGORITHM_VERSION = 'p0-0.3.0';
 export const PACKAGE_NAME = 'dsh-task-time-cost';

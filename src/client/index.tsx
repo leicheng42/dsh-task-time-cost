@@ -4,7 +4,7 @@ import type { Context } from '@deepseek-ai/cordis';
 import type { ChatSnapshot, TurnTailChatData } from '@deepseek-ai/dsh-client-ui-chat/client';
 import type { EstimatorRemote } from '../shared/wire.ts';
 import { EstimateDetails } from './details.tsx';
-import { compactTokens, compactTokenRange, costSummary, costUnconfigured, formatDuration, formatEta, isTerminal, isWideEta, localTiming } from './format.ts';
+import { compactTokens, compactTokenRange, costSummary, costUnconfigured, formatDuration, formatEta, formatEtaPoint, isTerminal, isWideEta, localTiming } from './format.ts';
 import { en, zh, LOCALE_NAMESPACE } from './locale.ts';
 import type { Translate } from './locale.ts';
 import { Management } from './management.tsx';
@@ -139,17 +139,18 @@ export function applyClient(ctx: Context): void {
       && (!snapshot || state.lastForecast.taskKey === snapshot.taskKey) && (active || !snapshot && targetTurn !== null) ? state.lastForecast : null;
     const displayedRemaining = sessionRemaining ?? retained?.remainingMs;
     const wide = isWideEta(displayedRemaining);
-    const eta = formatEta(displayedRemaining, t);
+    const range = formatEta(displayedRemaining, t);
+    const eta = formatEtaPoint(displayedRemaining, t, sessionRemaining !== null ? snapshot?.remainingTypicalMs : retained?.remainingTypicalMs);
     // Keep the last time reference while the new plan is unavailable. It is
     // frozen and labelled in the dialog, never used as a current cost budget.
-    const line = tail ? t('doneElapsed', { elapsed }) : (active && sessionRemaining !== null || retained) ? wide ? t('etaUncertain') : t('etaEstimate', { value: eta }) : t('titleShort');
+    const line = tail ? t('doneElapsed', { elapsed }) : (active && sessionRemaining !== null || retained) ? t(retained ? 'etaRetained' : 'etaEstimate', { value: eta }) : t('titleShort');
     const unconfigured = !!snapshot && costUnconfigured(snapshot);
     const referencePrice = snapshot?.reasons.includes('public-reference-price-not-provider-bill') ?? false;
     return <div className="dte" data-slot={tail ? 'assistant-actions' : 'composer-dock'}>
       <style>{styles}</style>
       <button type="button" className={tail ? 'dte-line dte-line-tail' : 'dte-line'} aria-haspopup="dialog" aria-expanded={expanded} aria-controls={`${id}-panel`}
         aria-label={line} onClick={() => { setView('summary'); setExpanded((value) => !value); }} ref={summary}
-        title={terminal ? line : snapshot || retained ? t('etaFull', { value: eta }) : t('title')}>
+        title={terminal ? line : snapshot || retained ? t('etaFull', { value: range }) : t('title')}>
         <ClockIcon state={snapshot?.state ?? 'idle'} />
         <span className="dte-line-text">{line}</span>
       </button>
@@ -167,6 +168,7 @@ export function applyClient(ctx: Context): void {
         <div className="dte-pop-rule" aria-hidden="true" />
         <dl className="dte-summary">
           <dt>{t('activeTime')}</dt><dd>{snapshot ? elapsed : t('unknown')}</dd>
+          {!terminal && <><dt>{t('remainingRange')}</dt><dd>{range}</dd></>}
           <dt>{t('estimatedTotal')}</dt><dd>{formatEta(snapshot?.estimatedTotalMs ?? retained?.estimatedTotalMs, t)}</dd>
           <dt>{t('tokenTotal')}</dt><dd>{snapshot?.observedTokenStatus === 'partial' ? t('partialKnown', { value: compactTokens(snapshot.observedTokens, t) }) : compactTokens(snapshot?.observedTokens, t)}</dd>
           {!terminal && <><dt>{t('tokenRemainingOutput')}</dt><dd title={t('tokenRemainingNote')}>{compactTokenRange(snapshot?.estimatedRemainingOutputTokens, t)}</dd>

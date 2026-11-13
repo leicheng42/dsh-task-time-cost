@@ -495,6 +495,28 @@ test('host/workload: the first successful observation updates the configured tem
   assert.equal(learned.visibleOutputTokens, 8_100); assert.equal(learned.toolMs, 16_000);
 });
 
+test('review/replan: a human follow-up cannot replace a large AI plan with a short template', async t => {
+  const env = await environment(t, liveConfig()), current = task(env.now());
+  current.aiPlan = { remainingCalls: { low: 40, high: 50 }, remainingOutputTokens: { low: 8_000, high: 12_000 },
+    remainingToolSeconds: { low: 300, high: 600 }, stage: 'implementation', afterCalls: 0, submittedAt: env.now() };
+  const planned = env.engine.persist('replan-session', current, 1);
+  assert.ok(planned.remainingMs && planned.remainingMs.high > 600_000);
+  assert.ok(planned.remainingTypicalMs && planned.remainingTypicalMs > 300_000);
+  await env.repository.flush();
+  current.scopeChanged = true; delete current.aiPlan;
+  const stale = env.engine.persist('replan-session', current, 2);
+  assert.equal(stale.remainingMs, null, 'No short template should replace invalidated work');
+  assert.equal(stale.remainingTypicalMs, null);
+  assert.equal(stale.estimatedRemainingOutputTokens, null);
+  assert.equal(stale.estimatedTotalCost, null);
+  const retained = env.repository.tasks.get(stale.taskKey)!.lastForecast!;
+  assert.equal(retained.remainingTypicalMs, planned.remainingTypicalMs, 'Keep the last numeric reference independently');
+  assert.deepEqual(retained.remainingMs, planned.remainingMs);
+  current.aiPlan = { remainingCalls: { low: 35, high: 45 }, remainingOutputTokens: { low: 7_000, high: 10_000 },
+    remainingToolSeconds: { low: 240, high: 500 }, stage: 'implementation', afterCalls: 0, submittedAt: env.now() };
+  assert.ok(env.engine.estimate('replan-session', current, 3, true).remainingTypicalMs! > 300_000);
+});
+
 test('host/lifecycle: session cleanup releases local clocks, attempts and errors without losing another session', async t => {
   const env = await environment(t, liveConfig()), current = task(env.now()), state = liveState(current);
   env.engine.onDurable('review-session', state, 'turn/start');

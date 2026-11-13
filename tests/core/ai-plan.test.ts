@@ -11,6 +11,14 @@ const route = { providerId: 'fixture-provider', endpointFingerprint: 'fixture-en
 const input = { remainingCalls: { low: 3, high: 5 }, remainingOutputTokens: { low: 1_000, high: 2_000 }, remainingToolSeconds: { low: 60, high: 120 }, stage: 'verification' as const };
 const result = JSON.stringify({ kind: 'task-estimate-plan', version: 1, plan: input });
 
+test('nominal AI time uses route centers instead of midpointing multiplied uncertainty bounds', () => {
+  const base = estimateWorkload({ prompt: 'modify code', currentInputTokens: 1_000 }, route);
+  const plan = applyAiPlan(base, { ...input, afterCalls: 0, submittedAt: 1_000 }, route, 1_000, {});
+  const estimate = estimateWorkloadTime(plan, r => selectPerformance(r, [], [{ ...heuristicPerformance(), totalCallMs: 30_000, appliesTo: { providerId: route.providerId, modelId: route.modelId } }]));
+  assert.equal(estimate.typicalMs, 210_000, '4 model responses × 30s plus 90s critical-path tool time');
+  assert.deepEqual(estimate.remainingMs, { low: 105_000, high: 495_000 }, 'keep the complete uncertainty range');
+});
+
 test('AI plan accepts bounded work metadata and rejects inverted or content-bearing input', () => {
   assert.deepEqual(aiPlanSchema.parse(input), input);
   for (const invalid of [

@@ -88,6 +88,16 @@ export function formatEta(range: Span | null | undefined, t: Translate): string 
   return low === high ? low : t('range', { low, high });
 }
 
+/** A readable central reference; full bounds remain independently available. */
+export function formatEtaPoint(range: Span | null | undefined, t: Translate, typicalMs?: number | null): string {
+  if (!validSpan(range)) return t('unknown');
+  const nominal = typicalMs != null && Number.isFinite(typicalMs) && typicalMs >= range.low && typicalMs <= range.high
+    ? typicalMs : range.low + (range.high - range.low) / 2;
+  const step = ETA_STEPS.find(([limit]) => nominal < limit)![1];
+  const rounded = Math.max(nominal > 0 ? 1_000 : 0, Math.round(nominal / step) * step);
+  return t('aboutDuration', { value: formatCoarse(rounded, t) });
+}
+
 /** Compact counts retain separate observed and forecast labels in the summary. */
 export function compactTokens(value: number | null | undefined, t: Translate): string {
   if (value == null || !Number.isFinite(value) || value < 0) return t('unknown');

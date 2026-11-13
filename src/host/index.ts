@@ -22,6 +22,7 @@ import { ALGORITHM_VERSION, PACKAGE_NAME } from '../shared/wire.ts';
 import type { EstimateSnapshot, EstimatorView, ManagementAction, ManagementResult } from '../shared/wire.ts';
 import { descriptors } from '../shared/remote-contract.ts';
 import { retainedTimeForecast } from '../shared/retained-time.ts';
+import { ObserverMetrics } from './metrics.ts';
 import { Config, validatePluginConfig } from './config.ts';
 import type { PluginConfig } from './config.ts';
 import { persistConfig } from './config-entry.ts';
@@ -141,6 +142,7 @@ export class TaskEstimatorService extends TypertRemoteService {
 
 export async function apply(ctx: Context, rawConfig: unknown): Promise<void> {
   const config: PluginConfig = validatePluginConfig(rawConfig);
+  const metrics = new ObserverMetrics();
   const repository = new Repository(message => ctx.logger.warn(message));
   await repository.open(ctx.storageDomain);
   let baselines: BaselineRecord[] = [];
@@ -170,11 +172,12 @@ export async function apply(ctx: Context, rawConfig: unknown): Promise<void> {
     ], types: [] }], events: [], objects: [] } });
 
   function safe(agent: Agent | undefined, operation: () => void): void {
+    const started = performance.now();
     try { operation(); }
     catch (error) {
       if (agent) { const boundary = ctx.agents.turnBoundaryOf(agent.session); engine.observerFailed(agent.id, boundary.lastTurn, error); }
       else repository.diagnose('observer-failed', 'An estimator observer failed; the original operation continues.');
-    }
+    } finally { metrics.record('observer', performance.now() - started); }
   }
   function checkpoint(agent: Agent): void {
     const state = projection.stateOf(agent.session);
@@ -201,10 +204,16 @@ export async function apply(ctx: Context, rawConfig: unknown): Promise<void> {
     if (frame.type === 'end') checkpoint(agent);
   }));
   ctx.on('tools/execute', async (exec, next) => {
+    const started = performance.now();
     let ticket: ReturnType<typeof engine.runtime.beginTool> | undefined;
     if (exec.agent && !exec.parent) safe(exec.agent, () => { const boundary = ctx.agents.turnBoundaryOf(exec.agent!.session); ticket = engine.runtime.beginTool(exec.agent!.id, boundary.lastTurn, exec.callId); });
+    const entered = performance.now();
     try { return await next(); }
-    finally { if (ticket) safe(exec.agent, () => { engine.runtime.endTool(ticket!); engine.invalidate(ticket!.sessionId, ticket!.turn); }); }
+    finally {
+      const returned = performance.now();
+      if (ticket) safe(exec.agent, () => { engine.runtime.endTool(ticket!); engine.invalidate(ticket!.sessionId, ticket!.turn); });
+      metrics.record('tool-dispatch-extra', entered - started + performance.now() - returned);
+    }
   });
   ctx.on('user-questions/request', async (request, next) => {
     const agent = request.agent;
@@ -219,7 +228,10 @@ export async function apply(ctx: Context, rawConfig: unknown): Promise<void> {
     try { return await next(); }
     finally { if (resume) safe(request.agent, () => { resume!(); engine.invalidate(request.agent.id, ctx.agents.turnBoundaryOf(request.agent.session).lastTurn); checkpoint(request.agent); }); }
   });
-  ctx.on('session/flush', async () => { await repository.flush(); });
+  ctx.on('session/flush', async () => {
+    const started = performance.now();
+    try { await repository.flush(); } finally { metrics.record('flush', performance.now() - started); }
+  });
   ctx.on('agent/disposed', ({ agent }) => { safe(agent, () => checkpoint(agent)); engine.cleanupSession(agent.id); });
   ctx.tools.register({
     name: 'task_estimator', description: 'Read task time/cost estimates or manage this plugin’s local configuration, calibration, and JSON/CSV baselines. Export returns redacted statistics. Reset preserves history and DSH sessions.',
@@ -236,7 +248,10 @@ export async function apply(ctx: Context, rawConfig: unknown): Promise<void> {
       const input = z.object({ action: z.enum(['snapshot', 'read', 'saveConfig', 'export', 'resetCalibration', 'importBaselines']), turn: z.number().int().nonnegative().optional(), payload: z.string().max(2_000_000).optional() }).strict().parse(args);
       if (input.action === 'snapshot') {
         if (!exec.agent) return { available: false, snapshot: null, error: 'A session is required.' };
-        return await service.snapshot(exec.agent.id, input.turn ?? null, exec.signal);
+        const started = performance.now();
+        const view = await service.snapshot(exec.agent.id, input.turn ?? null, exec.signal);
+        metrics.record('snapshot', performance.now() - started);
+        return { ...view, observerOverhead: metrics.snapshot() };
       }
       return await service.manage(input.action, input.payload ?? '', exec.signal);
     },
@@ -259,7 +274,7 @@ export async function apply(ctx: Context, rawConfig: unknown): Promise<void> {
     },
   });
   ctx.systemPrompt.section({ name: 'task-estimate-planning', order: 1_000,
-    text: 'For a multi-step user task, submit a task_estimate_plan after understanding the scope, preferably alongside your initial work tools. Include implementation, verification and delivery. Revise it only when scope or remaining work materially changes or the budget is exceeded. Count work remaining after the reporting call. Count model response rounds, not individual tools, files, commands or parallel calls; one model response can contain many tools. Estimate tool wall time on the critical path, not the sum of parallel execution times. Prefer concrete bounds for the known scope and revise when evidence changes; do not add speculative optional work. Use task_estimator snapshot route timings when useful; never invent measured performance or treat call count as percentage complete. Skip planning for trivial answers. This uses the executing agent; do not start another model request just to estimate or poll.' });
+    text: 'For a multi-step user task, submit a task_estimate_plan after understanding the scope, preferably alongside your initial work tools. Include implementation, verification and delivery. Revise it whenever a new human message arrives during an active multi-step task, when scope or remaining work materially changes, or when the budget is exceeded. A follow-up invalidates the old plan; promptly assess all outstanding implementation, verification and delivery instead of forecasting only the next action. Count work remaining after the reporting call. Count model response rounds, not individual tools, files, commands or parallel calls; one model response can contain many tools. Estimate tool wall time on the critical path, not the sum of parallel execution times. Prefer concrete bounds for the known scope and revise when evidence changes; do not add speculative optional work. Use task_estimator snapshot route timings when useful; never invent measured performance or treat call count as percentage complete. Skip planning for trivial answers. This uses the executing agent; do not start another model request just to estimate or poll.' });
   // Existing sessions are folded once on demand by the projection owner. No log rescans per frame.
   for (const agent of ctx.agents.list()) safe(agent, () => { projection.stateOf(agent.session); engine.runtime.task(agent.id, ctx.agents.turnBoundaryOf(agent.session).lastTurn); });
   ctx.effect(() => async () => {

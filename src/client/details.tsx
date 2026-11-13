@@ -29,7 +29,7 @@ const reasonKeys: Record<string, MessageKey> = {
   'workload-data-incomplete': 'reasonIncompleteWorkload', 'request-completed': 'reasonRequestCompleted',
   'endpoint-identity-unknown': 'reasonEndpointUnknown', 'endpoint-unresolved-mixed-route': 'reasonEndpointUnknown',
   'continuation-local-task-history': 'reasonContinuationHistory', 'continuation-history-insufficient': 'reasonContinuationUnknown',
-  'ai-workload-plan-reference': 'reasonAiPlan',
+  'ai-workload-plan-reference': 'reasonAiPlan', 'ai-plan-needs-refresh': 'reasonScopeChanged',
 };
 export function reasonText(reason: string, t: Translate): string {
   if (reasonKeys[reason]) return t(reasonKeys[reason]);

@@ -16,7 +16,7 @@ export const snapshotSchema: z.ZodType<EstimateSnapshot> = z.object({
   algorithmVersion: z.string(), state: taskState, taskType: z.string(),
   updatedAt: nonnegative, startedAt: nonnegative, endedAt: nonnegative.nullable(),
   elapsedWallMs: nonnegative, elapsedActiveMs: nonnegative, elapsedPausedMs: nonnegative,
-  remainingMs: span.nullable(), estimatedTotalMs: span.nullable(),
+  remainingMs: span.nullable(), remainingTypicalMs: nonnegative.nullable().optional(), estimatedTotalMs: span.nullable(),
   sessionElapsedMs: nonnegative.optional(), sessionRemainingMs: span.nullable().optional(), sessionTurns: integer.optional(),
   estimateOrigin: z.enum(['heuristic', 'public-measured', 'local-measured', 'mixed']),
   localPerformanceSamples: integer, workloadSamples: integer,
@@ -48,7 +48,7 @@ export const managementViewSchema = z.object({
   diagnostics: z.array(z.object({ time: nonnegative, code: z.string(), message: z.string() })),
   storage: z.enum(['ready', 'unavailable']),
 });
-export const retainedTimeForecastSchema = z.object({ taskKey: z.string(), remainingMs: span, estimatedTotalMs: span.nullable(), updatedAt: nonnegative });
+export const retainedTimeForecastSchema = z.object({ taskKey: z.string(), remainingMs: span, remainingTypicalMs: nonnegative.nullable().optional(), estimatedTotalMs: span.nullable(), updatedAt: nonnegative });
 const viewSchema = z.object({ snapshot: snapshotSchema.nullable(), available: z.boolean(), error: z.string().nullable(), lastForecast: retainedTimeForecastSchema.optional() });
 const manageResultSchema = z.object({ ok: z.boolean(), message: z.string(), data: managementViewSchema.optional(), exported: z.string().optional() });
 function codec(schema: z.ZodType, typeSymbol: string): TypertCodec {

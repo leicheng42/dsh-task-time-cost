@@ -16,7 +16,7 @@ export interface ScheduleOptions { maxConcurrency?: number; resourceLimits?: Rec
 export interface ScheduledUnit { id: string; startMs: Span; endMs: Span }
 export interface ScheduleResult { makespanMs: Span; totalWorkMs: Span; units: ScheduledUnit[] }
 export interface PlanTimeOptions extends ScheduleOptions { progress?: Record<string, RequestProgress>; completedIds?: string[]; config?: Partial<EstimatorConfig> }
-export interface PlanTime { remainingMs: Span | null; schedule: ScheduleResult | null; reasons: string[]; origin: EstimateOrigin; localPerformanceSamples: number }
+export interface PlanTime { remainingMs: Span | null; typicalMs: number | null; schedule: ScheduleResult | null; reasons: string[]; origin: EstimateOrigin; localPerformanceSamples: number }
 
 export function estimateRequestTime(request: RequestBudget, performance: PerformanceEstimate, progress: RequestProgress = { phase: 'not-started', elapsedMs: 0 }, config: Partial<EstimatorConfig> = {}): RequestTime {
   const c = validateConfig(config);
@@ -117,10 +117,31 @@ export function schedule(units: ScheduleUnit[], options: ScheduleOptions = {}): 
   };
 }
 
+function nominalRequestTime(request: RequestBudget, performance: PerformanceEstimate, progress: RequestProgress, range: Span, config: EstimatorConfig): number {
+  const median = (values: number[]) => values[Math.floor((values.length - 1) / 2)]!;
+  const wait = (center: number, samples: number[]) => {
+    const eligible = samples.filter(value => Number.isFinite(value) && value >= 0
+      && (progress.phase === 'not-started' || value > progress.elapsedMs)).sort((a, b) => a - b);
+    const nominal = eligible.length >= config.minConditionalSamples ? median(eligible) : center;
+    return Math.max(0, nominal - (progress.phase === 'not-started' ? 0 : progress.elapsedMs));
+  };
+  const text = request.route.requestMode === 'text' && request.visibleTextTokens !== null
+    && performance.firstTextMs !== null && performance.visibleTps !== null && performance.visibleTps > 0;
+  const nominal = text ? Math.max(0, (request.visibleTextTokens!.low + request.visibleTextTokens!.high) / 2
+    - (progress.generatedTextTokens ?? 0)) / performance.visibleTps! * 1000
+    + (progress.phase === 'text' ? 0 : wait(performance.firstTextMs!, performance.firstTextWaitSamplesMs))
+    : wait(performance.totalCallMs, performance.totalCallSamplesMs);
+  // If a center has elapsed but its finite range has not, show that residual
+  // range's center. Exhausted ranges are already unknown in estimateRequestTime.
+  return Math.min(range.high, Math.max(range.low, nominal > 0 ? nominal : (range.low + range.high) / 2));
+}
+
 export function estimatePlanTime(scenario: PlanScenario, performanceFor: (route: RouteIdentity, request?: RequestBudget) => PerformanceEstimate, options: PlanTimeOptions = {}): PlanTime {
   const completed = new Set(options.completedIds ?? []);
   for (const [id, progress] of Object.entries(options.progress ?? {})) if (progress.phase === 'completed') completed.add(id);
   const units: ScheduleUnit[] = [];
+  const nominal = new Map<string, number>();
+  const config = validateConfig(options.config);
   const reasons: string[] = [];
   const origins: EstimateOrigin[] = [];
   let unknown = false;
@@ -128,28 +149,36 @@ export function estimatePlanTime(scenario: PlanScenario, performanceFor: (route:
   for (const request of scenario.requests) {
     if (completed.has(request.id)) continue;
     const performance = performanceFor(request.route, request);
-    const estimate = estimateRequestTime(request, performance, options.progress?.[request.id], options.config);
+    const progress = options.progress?.[request.id] ?? { phase: 'not-started' as const, elapsedMs: 0 };
+    const estimate = estimateRequestTime(request, performance, progress, config);
     const bodyMetrics = request.route.requestMode === 'text' && request.visibleTextTokens !== null && performance.firstTextMs !== null && performance.visibleTps !== null;
     origins.push(bodyMetrics ? mergeOrigins([performance.metricOrigins.firstText, performance.metricOrigins.speed]) : performance.metricOrigins.total);
     localPerformanceSamples = Math.max(localPerformanceSamples, performance.samples);
     reasons.push(...estimate.reasons);
     if (estimate.remainingMs === null) unknown = true;
-    else units.push({ id: request.id, durationMs: estimate.remainingMs, dependsOn: request.dependsOn.filter(id => !completed.has(id)), resource: 'model' });
+    else {
+      units.push({ id: request.id, durationMs: estimate.remainingMs, dependsOn: request.dependsOn.filter(id => !completed.has(id)), resource: 'model' });
+      nominal.set(request.id, nominalRequestTime(request, performance, progress, estimate.remainingMs, config));
+    }
   }
   for (const tool of scenario.tools) {
     if (completed.has(tool.id)) continue;
     units.push({ id: tool.id, durationMs: tool.durationMs, dependsOn: tool.dependsOn.filter(id => !completed.has(id)), resource: tool.resource ?? 'tool' });
+    nominal.set(tool.id, (tool.durationMs.low + tool.durationMs.high) / 2);
     origins.push(tool.sourceKind);
   }
-  if (unknown) return { remainingMs: null, schedule: null, reasons: [...new Set(reasons)], origin: mergeOrigins(origins), localPerformanceSamples };
+  if (unknown) return { remainingMs: null, typicalMs: null, schedule: null, reasons: [...new Set(reasons)], origin: mergeOrigins(origins), localPerformanceSamples };
   const result = schedule(units, options);
-  return { remainingMs: result.makespanMs, schedule: result, reasons: [...new Set(reasons)], origin: mergeOrigins(origins), localPerformanceSamples };
+  const typical = schedule(units.map(unit => ({ ...unit, durationMs: { low: nominal.get(unit.id)!, high: nominal.get(unit.id)! } })), options);
+  return { remainingMs: result.makespanMs, typicalMs: typical.makespanMs.low, schedule: result, reasons: [...new Set(reasons)], origin: mergeOrigins(origins), localPerformanceSamples };
 }
 
 export function estimateWorkloadTime(plan: WorkloadPlan, performanceFor: (route: RouteIdentity, request?: RequestBudget) => PerformanceEstimate, options: PlanTimeOptions = {}): PlanTime {
   const low = estimatePlanTime(plan.low, performanceFor, options);
   const high = estimatePlanTime(plan.high, performanceFor, options);
-  return { remainingMs: low.remainingMs && high.remainingMs ? { low: Math.min(low.remainingMs.low, high.remainingMs.low), high: Math.max(low.remainingMs.high, high.remainingMs.high) } : null, schedule: high.schedule, reasons: [...new Set([...plan.reasons, ...low.reasons, ...high.reasons])], origin: mergeOrigins([plan.origin, low.origin, high.origin]), localPerformanceSamples: Math.max(low.localPerformanceSamples, high.localPerformanceSamples) };
+  return { remainingMs: low.remainingMs && high.remainingMs ? { low: Math.min(low.remainingMs.low, high.remainingMs.low), high: Math.max(low.remainingMs.high, high.remainingMs.high) } : null,
+    typicalMs: low.typicalMs !== null && high.typicalMs !== null ? (low.typicalMs + high.typicalMs) / 2 : null,
+    schedule: high.schedule, reasons: [...new Set([...plan.reasons, ...low.reasons, ...high.reasons])], origin: mergeOrigins([plan.origin, low.origin, high.origin]), localPerformanceSamples: Math.max(low.localPerformanceSamples, high.localPerformanceSamples) };
 }
 
 export interface ContinuationSample {

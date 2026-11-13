@@ -7,6 +7,16 @@ import { parseConfiguration } from '../../src/client/config.ts';
 import { snapshot, translator } from './fixtures.ts';
 const t = translator();
 
+test('wide estimates retain a numeric central reference and disclose the original bounds', async () => {
+  const { formatEtaPoint } = await import('../../src/client/format.ts');
+  const range = { low: 120_000, high: 2_400_000 };
+  assert.equal(formatEtaPoint(range, t, 600_000), 'about 10m');
+  assert.equal(formatEtaPoint(range, t), 'about 20m');
+  assert.equal(formatEta(range, t), '2m–40m');
+  assert.deepEqual(range, { low: 120_000, high: 2_400_000 });
+  assert.equal(formatEtaPoint(null, t), 'Unknown');
+});
+
 test('duration distinguishes zero, unknown, subsecond latency, and ordered ranges', () => {
   assert.equal(formatDuration(0, t), '0s');
   assert.equal(formatDuration(null, t), 'Unknown');

@@ -328,6 +328,8 @@ export class EstimatorEngine {
     const prediction = estimateWorkloadTime(plan, performanceFor, { completedIds, progress, config: this.engineConfig() });
     reasons.push(...prediction.reasons);
     let remaining = task.endedAt !== null ? { low: 0, high: 0 } : prediction.remainingMs;
+    let typical = task.endedAt !== null ? 0 : prediction.typicalMs;
+    const needsReplan = task.scopeChanged && !task.aiPlan;
     // Once the planned request count has been consumed the plan is no longer a
     // description of the work, and that stays true for the rest of the turn. The
     // earlier test also required "no active attempt", so a long turn collapsed
@@ -349,11 +351,17 @@ export class EstimatorEngine {
       // Each comparable TASK contributes once, regardless of its revision count.
       remaining = estimateContinuation({ elapsedActiveMs: elapsedActive, completedRequests: completedCount,
         activeRequests: activeCount, history, minSamples: this.config.minConditionalSamples });
+      typical = remaining ? (remaining.low + remaining.high) / 2 : null;
       reasons.push(remaining ? 'continuation-local-task-history' : 'continuation-history-insufficient');
     }
     // Historical duration can estimate time after plan exhaustion, but supplies
     // no future token/call budget from which to invent a complete cost forecast.
-    const unknownFuture = task.endedAt === null && (remaining === null || planExhausted);
+    if (task.endedAt === null && needsReplan) {
+      // A human follow-up invalidated the work plan. Do not present a short
+      // template as the remaining duration of a much larger ongoing task.
+      remaining = null; typical = null; reasons.push('ai-plan-needs-refresh');
+    }
+    const unknownFuture = task.endedAt === null && (remaining === null || planExhausted || needsReplan);
     const activeByRequest = new Map(active.map((attempt, index) => [`request-${completedCount + index + 1}`, attempt]));
     const projections = [plan.low, plan.high].map(scenario => {
       const forecast = task.endedAt !== null ? [] : scenario.requests.filter(request => !completedIds.includes(request.id)).map(request => forecastCall(request, this.config, this.config.routeOverrides[request.route.providerId], new Date(activeByRequest.get(request.id)?.startedAt ?? now).toISOString()));
@@ -402,7 +410,7 @@ export class EstimatorEngine {
         const generated = progress[request.id]?.generatedTextTokens ?? 0;
         return { low: sum.low + Math.max(0, request.visibleOutputTokens.low - generated), high: sum.high + Math.max(0, request.visibleOutputTokens.high - generated) };
       }, { low: 0, high: 0 }));
-    const estimatedRemainingOutputTokens = task.endedAt !== null ? { low: 0, high: 0 } : errors || planExhausted ? null
+    const estimatedRemainingOutputTokens = task.endedAt !== null ? { low: 0, high: 0 } : errors || planExhausted || needsReplan ? null
       : { low: Math.min(...outputScenarios.map(value => value.low)), high: Math.max(...outputScenarios.map(value => value.high)) };
     const estimatedTokens = tokenScenarios.every((span): span is Span => span !== null)
       ? { low: Math.max(totalTokens ?? 0, Math.min(...tokenScenarios.map(span => span.low))), high: Math.max(totalTokens ?? 0, ...tokenScenarios.map(span => span.high)) } : null;
@@ -412,7 +420,9 @@ export class EstimatorEngine {
       state: task.endedAt === null && runtime.pauseOwners.size ? 'waiting_user' : task.state,
       taskType: task.taskType, updatedAt: now, startedAt: task.startedAt, endedAt: task.endedAt,
       elapsedWallMs: elapsedWall, elapsedActiveMs: elapsedActive, elapsedPausedMs: paused,
-      remainingMs: errors ? null : remaining, estimatedTotalMs: errors ? null : remaining ? { low: elapsedActive + remaining.low, high: elapsedActive + remaining.high } : null,
+      remainingMs: errors ? null : remaining,
+      remainingTypicalMs: errors || !remaining ? null : typical ?? (remaining.low + remaining.high) / 2,
+      estimatedTotalMs: errors ? null : remaining ? { low: elapsedActive + remaining.low, high: elapsedActive + remaining.high } : null,
       estimateOrigin: prediction.origin, localPerformanceSamples: prediction.localPerformanceSamples, workloadSamples: plan.workloadSamples,
       // Coverage describes the requests, not the arithmetic: a request that
       // reported numbers is complete even when a neighbour reported none.

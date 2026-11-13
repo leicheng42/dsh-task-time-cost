@@ -4,7 +4,7 @@ Original P0 is incomplete. The external current-version report is authoritative;
 
 ## Functional and UI gates
 
-- Exact running-line ETA; composer entry beside native usage; no crowding, native font/hover/card appearance and placement; compact reference ranges.
+- Running ETA uses an exact native suffix when the Host offers a verified public extension; otherwise the documented public composer dock is the original specification’s allowed fallback (§3.2 and §15.8). Verify the real placement beside native usage, no crowding, native font/hover/card appearance and compact references. State the fallback explicitly; never claim native text was rewritten.
 - Completed duration-only native action, with Tokens in details; estimated Token budget details and correctly scoped totals.
 - Executing-AI bounded plan, replay/invalidation after new human scope, token-to-time semantics and last-valid retained time reference.
 - Automatic public-price references with source/version and override precedence; unknown/partial/free remain distinct.
