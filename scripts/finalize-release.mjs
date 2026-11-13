@@ -149,7 +149,7 @@ const report = {
   sha256,
   target: { dsh: project.engines.dsh, node: project.engines.node, platform: 'Windows Desktop' },
   p0Complete: remainingGates.length === 0,
-  releaseNotes: [`${project.version} separates public documentation from private development records, audits packed privacy boundaries, and focuses invalid management fields. Algorithm and historical valuations are preserved. Current UI, lifecycle and original P0 gates retain version-scoped evidence.`, 
+  releaseNotes: [`${project.version} learns comparable completed-workload distributions when samples suffice, labels broad early ETA references, shows separate forecast Tokens and moves low-frequency controls under More. Algorithm p0-0.2.9; historical usage, initial forecasts and original price resolutions are preserved. Current UI, lifecycle and original P0 gates retain version-scoped evidence.`, 
     'Known Token subtotals remain visible when other calls report no usage; incomplete coverage never becomes an exact total.',
     'Obsolete loaded-session summaries are recomputed and saved once, retaining initial forecasts and historical price resolutions.',
     'Current UI, lifecycle and historical-data checks keep their version-specific evidence; missing observations are not-verified. Exact running-line ETA remains an open requirement.',

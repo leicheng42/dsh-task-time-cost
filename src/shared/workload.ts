@@ -30,6 +30,7 @@ export interface RequestBudget {
 export interface ToolBudget { id: string; durationMs: Span; dependsOn: string[]; resource?: string; sourceKind: SourceKind }
 export interface PlanScenario { requests: RequestBudget[]; tools: ToolBudget[] }
 export interface WorkloadPlan { kind: TaskKind; low: PlanScenario; high: PlanScenario; origin: EstimateOrigin; reasons: string[]; workloadSamples: number; sourceIds: string[] }
+export interface WorkloadSample { requestCount: number; visibleOutputTokens: number; toolMs: number }
 export interface WorkloadHistory { kind: TaskKind; requestCount: number; visibleOutputTokens: number; toolMs: number; samples: number; lastObservedAtMs: number | null; sourceKind: 'local-measured' }
 export interface WorkloadObservation {
   kind: TaskKind;
@@ -146,7 +147,7 @@ export function classifyTask(input: TaskFeatures, rules: readonly Classification
   return { kind: 'unknown', reasons: ['no-classification-match', 'classification:heuristic'] };
 }
 
-export function estimateWorkload(input: TaskFeatures, route: RouteIdentity, options: { config?: Partial<EstimatorConfig>; templates?: readonly WorkloadTemplate[]; rules?: readonly ClassificationRule[]; history?: WorkloadHistory[] } = {}): WorkloadPlan {
+export function estimateWorkload(input: TaskFeatures, route: RouteIdentity, options: { config?: Partial<EstimatorConfig>; templates?: readonly WorkloadTemplate[]; rules?: readonly ClassificationRule[]; history?: WorkloadHistory[]; observations?: readonly WorkloadSample[] } = {}): WorkloadPlan {
   const config = validateConfig(options.config);
   const templates = options.templates ?? DEFAULT_TEMPLATES;
   validateTemplates(templates);
@@ -161,7 +162,19 @@ export function estimateWorkload(input: TaskFeatures, route: RouteIdentity, opti
   let output = { ...template.visibleOutputTokens };
   let tool = { ...template.toolMs };
   const reasons = [...classification.reasons, 'serial-conservative-dependencies', 'cache-ratio-unknown', 'reasoning-budget-unknown'];
-  if (history) {
+  const observations = (options.observations ?? []).filter(sample => Number.isSafeInteger(sample.requestCount) && sample.requestCount >= 1
+    && Number.isSafeInteger(sample.visibleOutputTokens) && sample.visibleOutputTokens >= 0 && Number.isFinite(sample.toolMs) && sample.toolMs >= 0).slice(-config.maxSamplesPerBucket);
+  const empirical = observations.length >= config.minConditionalSamples;
+  if (empirical) {
+    // Recentring the original template never learns a narrower spread. Use the
+    // central observed distribution once comparable completed tasks support it.
+    const range = (key: keyof WorkloadSample): Span => {
+      const values = observations.map(sample => sample[key]).sort((a, b) => a - b);
+      return { low: values[Math.floor((values.length - 1) * 0.2)]!, high: values[Math.ceil((values.length - 1) * 0.8)]! };
+    };
+    count = range('requestCount'); output = range('visibleOutputTokens'); tool = range('toolMs');
+    reasons.push('local-workload-distribution');
+  } else if (history) {
     for (const key of ['requestCount', 'visibleOutputTokens', 'toolMs', 'samples'] as const) nonnegative(history[key], key);
     count = scaleRange(count, history.requestCount);
     count = { low: Math.max(1, Math.floor(count.low)), high: Math.max(1, Math.ceil(count.high)) };
@@ -193,13 +206,14 @@ export function estimateWorkload(input: TaskFeatures, route: RouteIdentity, opti
     output = { low: Math.max(output.low, length.low * artifacts), high: Math.max(output.high, length.high * artifacts * overhead) };
     reasons.push(input.explicitOutputTokens ? 'explicit-output-token-budget' : 'requested-length-token-conversion:heuristic');
   }
-  const origin: EstimateOrigin = history ? (template.sourceKind === 'local-measured' ? 'local-measured' : 'mixed') : template.sourceKind;
+  const origin: EstimateOrigin = empirical ? 'local-measured' : history ? (template.sourceKind === 'local-measured' ? 'local-measured' : 'mixed') : template.sourceKind;
   return {
     kind: classification.kind,
     low: buildScenario(count.low, output.low, tool.low, input.currentInputTokens, route, classification.kind, template.sourceKind, config, false, length ? length.low * artifacts : null),
     high: buildScenario(count.high, output.high, tool.high, input.currentInputTokens, route, classification.kind, template.sourceKind, config, true, length ? length.high * artifacts : null),
-    origin, reasons, workloadSamples: history?.samples ?? 0,
-    sourceIds: [template.sourceId ?? `engineering-${template.kind}-v1`, ...(history ? [`local-workload:${history.kind}:${history.samples}`] : [])],
+    origin, reasons, workloadSamples: empirical ? observations.length : history?.samples ?? 0,
+    sourceIds: empirical ? [`local-workload-distribution:${classification.kind}:${observations.length}`]
+      : [template.sourceId ?? `engineering-${template.kind}-v1`, ...(history ? [`local-workload:${history.kind}:${history.samples}`] : [])],
   };
 }
 

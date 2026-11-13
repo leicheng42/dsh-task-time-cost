@@ -73,6 +73,11 @@ function formatCoarse(ms: number, t: Translate): string {
   return rest === 0 ? t('durationHoursOnly', { value: hours }) : t('durationHours', { value: hours, minutes: rest });
 }
 
+/** Wide early references should not masquerade as a useful countdown. */
+export function isWideEta(range: Span | null | undefined): boolean {
+  return validSpan(range) && range.high - range.low >= 300_000 && range.high >= Math.max(60_000, range.low) * 4;
+}
+
 /** Compact ETA for the one-line display: coarse bounds, latin units, stable width. */
 export function formatEta(range: Span | null | undefined, t: Translate): string {
   if (!validSpan(range)) return t('unknown');
@@ -80,6 +85,20 @@ export function formatEta(range: Span | null | undefined, t: Translate): string 
   const low = formatCoarse(roundedLow, t);
   const high = formatCoarse(roundEta(range.high, 'up'), t);
   if (range.high > 0 && roundedLow === 0) return t('upTo', { value: high });
+  return low === high ? low : t('range', { low, high });
+}
+
+/** Compact counts retain separate observed and forecast labels in the summary. */
+export function compactTokens(value: number | null | undefined, t: Translate): string {
+  if (value == null || !Number.isFinite(value) || value < 0) return t('unknown');
+  if (value < 1_000) return String(Math.round(value));
+  const divisor = value < 1_000_000 ? 1_000 : 1_000_000;
+  const scaled = value / divisor;
+  return `${scaled >= 100 ? Math.round(scaled) : Number(scaled.toFixed(1))}${divisor === 1_000 ? 'k' : 'M'}`;
+}
+export function compactTokenRange(range: Span | null | undefined, t: Translate): string {
+  if (!validSpan(range)) return t('unknown');
+  const low = compactTokens(range.low, t), high = compactTokens(range.high, t);
   return low === high ? low : t('range', { low, high });
 }
 

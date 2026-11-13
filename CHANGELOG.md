@@ -1,5 +1,14 @@
 # Changelog / 发行说明
 
+## 0.2.9-beta.1 — narrower evidence-based budgets and simpler details
+
+- With enough eligible completed tasks of the same kind and route, workload ranges use the observed central 20–80% distribution instead of preserving the wide template ratio. Future, reset, ineligible and other-route tasks are excluded; sparse data retains reference priors.
+- Broad early ETA references read “Refining estimate” in the compact entry; the dialog retains the full calculated range and explains the uncertainty. No clipping or fabricated precision.
+- The first popup shows observed Tokens and estimated remaining output Tokens separately. Already generated output is subtracted once from the remaining budget; incomplete full totals stay unknown.
+- Move estimate details and settings/calibration under the header’s accessible More button. Closing and reopening returns to the simple summary; management still opens only on demand.
+- Clarify executing-AI plans: count model response rounds rather than individual tool calls, and use parallel tool wall time. No extra estimator model requests.
+- Algorithm p0-0.2.9; original usage, historical price resolutions and initial forecasts remain preserved. Original P0 and whole-task accuracy requirements remain open; this is a preview.
+
 ## 0.2.8-beta.2 — npm preview distribution
 
 - Enables public npm publication with the beta tag and adds direct DSH installation instructions.

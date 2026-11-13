@@ -202,14 +202,24 @@ export class EstimatorEngine {
     const input = this.initialInput.get(key) ?? (firstCall ? this.normalize(firstCall).promptTokens : null);
     const requestMode = task.calls.findLast(call => call.mode !== 'unknown' && (!task.route
       || call.route.providerId === task.route.providerId && call.route.modelId === task.route.modelId && call.route.reasoningEffort === task.route.reasoningEffort))?.mode ?? 'unknown';
-    const signature = JSON.stringify([task.taskType, task.explicitOutputWords, task.attachmentCount, task.route, requestMode, input, task.aiPlan]);
+    const route = this.route(task.route, requestMode);
+    const comparable = task.aiPlan ? [] : [...this.repository.tasks.values()].filter(record => {
+      const past = record.current, p = past.performance;
+      return record.id !== key && record.learned?.eligible && past.state === 'completed' && past.endedAt !== null
+        && past.endedAt <= task.startedAt && record.savedAt > this.repository.resetAt
+        && task.startedAt - past.endedAt <= this.config.historyRetentionDays * 86_400_000 && past.taskType === task.taskType
+        && p?.providerId === route.providerId && p.modelId === route.modelId && p.endpointFingerprint === route.endpointFingerprint
+        && p.reasoningEffort === route.reasoningEffort && p.serviceTier === route.serviceTier;
+    }).sort((a, b) => a.current.endedAt! - b.current.endedAt!).slice(-this.config.maxSamplesPerBucket);
+    const signature = JSON.stringify([task.taskType, task.explicitOutputWords, task.attachmentCount, task.route, requestMode, input, task.aiPlan, comparable.map(record => record.id)]);
     const previous = this.plans.get(key);
     if (previous?.signature === signature) return structuredClone(previous.plan);
-    const route = this.route(task.route, requestMode);
     const templates = this.templates(route);
     let plan = estimateWorkload({ prompt: syntheticPrompts[task.taskType], currentInputTokens: input, fileCount: task.attachmentCount,
       ...(task.explicitOutputWords ? { explicitOutputTokens: { low: task.explicitOutputWords, high: task.explicitOutputWords * 2 } } : {}) }, route,
-    { config: this.engineConfig(), templates, history: [...this.workloadHistory.values()], rules: [{ id: 'durable-classification', kind: task.taskType, patterns: ['.*'] }] });
+    { config: this.engineConfig(), templates, history: [...this.workloadHistory.values()],
+      observations: comparable.map(record => ({ requestCount: record.learned!.calls, visibleOutputTokens: record.learned!.visibleOutputTokens, toolMs: record.learned!.toolWorkMs })),
+      rules: [{ id: 'durable-classification', kind: task.taskType, patterns: ['.*'] }] });
     if (task.aiPlan) plan = applyAiPlan(plan, task.aiPlan, route, this.currentInput.get(key) ?? input, this.engineConfig());
     this.plans.set(key, { signature, plan });
     return structuredClone(plan);
@@ -388,7 +398,10 @@ export class EstimatorEngine {
       return low === null || high === null ? null : { low, high };
     });
     const outputScenarios = [plan.low, plan.high].map(scenario => scenario.requests.filter(request => !completedIds.includes(request.id))
-      .reduce((sum, request) => ({ low: sum.low + request.visibleOutputTokens.low, high: sum.high + request.visibleOutputTokens.high }), { low: 0, high: 0 }));
+      .reduce((sum, request) => {
+        const generated = progress[request.id]?.generatedTextTokens ?? 0;
+        return { low: sum.low + Math.max(0, request.visibleOutputTokens.low - generated), high: sum.high + Math.max(0, request.visibleOutputTokens.high - generated) };
+      }, { low: 0, high: 0 }));
     const estimatedRemainingOutputTokens = task.endedAt !== null ? { low: 0, high: 0 } : errors || planExhausted ? null
       : { low: Math.min(...outputScenarios.map(value => value.low)), high: Math.max(...outputScenarios.map(value => value.high)) };
     const estimatedTokens = tokenScenarios.every((span): span is Span => span !== null)

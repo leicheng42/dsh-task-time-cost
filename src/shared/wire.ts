@@ -130,5 +130,5 @@ export interface EstimatorRemote {
   manage(action: ManagementAction, payload: string, signal?: AbortSignal): Promise<RemoteResult<ManagementResult>>;
 }
 export type RemoteResult<T> = { ok: true; value: T } | { ok: false; error: { message: string; code: string } };
-export const ALGORITHM_VERSION = 'p0-0.2.4';
+export const ALGORITHM_VERSION = 'p0-0.2.9';
 export const PACKAGE_NAME = 'dsh-task-time-cost';

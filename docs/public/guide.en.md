@@ -4,9 +4,11 @@
 
 ## Entry and estimates
 
-Open the clock/estimate beside native Token statistics. Details expand on demand. Completed actions show elapsed time without duplicate Tokens. Active time, manual waits, remaining reference and estimated total are distinct; retained historical references carry a timestamp.
+Open the clock/estimate beside native Token statistics. The simple popup shows elapsed time, estimated total time, observed Tokens and estimated remaining output Tokens separately. A complete total Token forecast appears when known. The header’s More (⋯) button contains details and settings/calibration; reopening starts with the summary. Completed actions show elapsed time without duplicate Tokens. Retained time references carry a timestamp.
 
-Complete normal tasks to collect local calibration. Profiles show route, source, date, samples and available metrics. Defaults of10s first text,50 visible tok/s,30s total call and0.5/2.5 reference factors are engineering priors, not provider measurements.
+Very broad early ranges show “Refining estimate” in the entry while the dialog keeps the full computed range. At least 5 eligible completed tasks of the same kind and route can supply their central 20–80% workload distribution. Sparse samples retain engineering references. Executing-AI plans count model response rounds rather than tools or files; parallel tool time follows the critical path.
+
+Complete normal tasks to collect local calibration. Profiles show route, source, date, samples and available metrics. Defaults of10s first text,80 visible tok/s,30s total call and0.5/2.5 reference factors are engineering priors, not provider measurements.
 
 Provider, endpoint identity, model, mode, reasoning settings and tier distinguish routes. Unsupported endpoint identity remains unknown. Only configure a stable identity free of secrets, never an API key or credential-bearing URL.
 

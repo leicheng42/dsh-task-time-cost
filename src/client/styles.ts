@@ -76,7 +76,10 @@ export const styles = `
    body portal with the native gap/inset and a bounded internal scroll area. */
 .dte .dte-pop{position:fixed;inset:auto;z-index:1100;box-sizing:border-box;width:max-content;min-width:min(300px,calc(100vw - 24px));max-width:min(440px,calc(100vw - 24px));padding:16px;border:0;border-radius:var(--dsw-radius-lg);background:var(--dsw-specific-menu);backdrop-filter:var(--dsw-menu-backdrop-filter);--dsw-elevation-stroke-color:var(--dsw-alias-border-l1);box-shadow:var(--dsw-elevation-prominent);font-family:inherit;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary);cursor:default;max-height:calc(100dvh - 12px - max(12px,var(--dsh-frame-overlay-top,12px)));overflow-x:hidden;overflow-y:auto;--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2);top:max(12px,var(--dsh-frame-overlay-top,12px));left:12px;height:auto;min-height:0;margin:0;overscroll-behavior:contain}
 .dte .dte-pop-head{display:flex;justify-content:space-between;gap:16px;margin-bottom:8px;color:var(--dsw-alias-label-primary);font-weight:500}
-.dte .dte-pop-title{display:inline-flex;align-items:center;gap:6px;min-width:0}
+.dte .dte-pop-title{display:inline-flex;align-items:center;gap:6px;min-width:0;flex:1}
+.dte .dte-pop-value{white-space:nowrap}
+.dte button.dte-more{display:inline-flex;align-items:center;justify-content:center;border:0;background:transparent;min-height:24px;width:24px;padding:2px;margin:-3px -4px -3px -8px;color:var(--dsw-alias-label-tertiary)}
+.dte .dte-pop-actions[hidden]{display:none}
 .dte .dte-pop-rule{margin-bottom:10px;border-top:.5px solid var(--dsw-alias-border-l2)}
 .dte .dte-summary{display:grid;grid-template-columns:minmax(76px,auto) minmax(0,1fr);gap:6px 16px;margin:0;color:var(--dsw-alias-label-tertiary)}
 .dte .dte-summary dt,.dte .dte-summary dd{min-width:0;margin:0}

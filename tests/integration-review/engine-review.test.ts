@@ -430,6 +430,7 @@ test('host/live: cumulative usage updates observed totals without double chargin
   const live = env.engine.estimate('review-session', current, 1, true);
   assert.equal(live.observedTokens, 1_100);
   assert.equal(live.tokens.output, 100);
+  assert.deepEqual(live.estimatedRemainingOutputTokens, { low: 400, high: 400 }, 'Already generated output must leave the remaining budget');
   assert.deepEqual(live.knownCost, [{ currency: 'USD', amount: '0.0028' }]);
   assert.deepEqual(live.estimatedTotalCost, [{ currency: 'USD', range: { low: '0.006', high: '0.006' } }]);
   assert.deepEqual(live.estimatedTotalTokens, { low: 1_500, high: 1_500 });
@@ -437,6 +438,7 @@ test('host/live: cumulative usage updates observed totals without double chargin
     chunk: { type: 'usage', usage: { inputTokens: 1_000, outputTokens: 150, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0 } } }, state);
   const next = env.engine.estimate('review-session', current, 2, true);
   assert.equal(next.observedTokens, 1_150, 'Cumulative snapshots replace previous counters');
+  assert.deepEqual(next.estimatedRemainingOutputTokens, { low: 350, high: 350 }, 'Successive cumulative usage replaces, rather than subtracts twice');
   assert.deepEqual(next.knownCost, [{ currency: 'USD', amount: '0.0032' }]);
   const fixture = callFixture(current.startedAt);
   current.calls.push(fixture.fact);
@@ -612,6 +614,30 @@ test('review/route: an unresolved endpoint keeps one stable unknown identity ins
   assert.equal(profile.totalCallSamples, 1);
   await env.repository.flush();
   assert.equal(env.repository.error, null, env.logs.join('\n'));
+});
+
+test('review/workload: empirical budgets use only eligible prior tasks on the same route and survive JSON reopen', async t => {
+  const env = await environment(t);
+  for (let index = 0; index < 9; index++) {
+    const historical = task(1, 'code');
+    historical.endedAt = 100_000; historical.state = 'completed';
+    const view = env.engine.estimate(`distribution-${index}`, historical, 1, true);
+    if (index >= 5) view.performance = { ...view.performance!, modelId: 'other-model' };
+    if (index === 8) { view.performance!.modelId = routeFact.modelId; view.endedAt = env.now() + 100_000; }
+    await env.repository.saveTask({ id: view.taskKey, savedAt: view.endedAt!, current: view, revisions: [view],
+      learned: { calls: index < 5 ? 8 : 100, visibleOutputTokens: 2_400, toolWorkMs: 30_000, eligible: index !== 7 } });
+  }
+  const current = task(env.now(), 'code');
+  const estimate = env.engine.estimate('review-session', current, 1, true);
+  assert.deepEqual(estimate.calls.expected, { low: 8, high: 8 });
+  assert.equal(estimate.workloadSamples, 5, 'Other routes, future completions and ineligible tasks are excluded');
+  assert.ok(estimate.reasons.includes('local-workload-distribution'));
+  await env.repository.flush(); await env.repository.close();
+  const reopened = new Repository(message => env.logs.push(message), env.now); t.after(() => reopened.close());
+  await reopened.open(env.facility);
+  const restored = new EstimatorEngine(configured(), reopened, [], env.runtime); t.after(() => restored.dispose());
+  assert.deepEqual(restored.estimate('review-session', current, 1, true).calls.expected, estimate.calls.expected);
+  assert.equal(reopened.error, null, env.logs.join('\n'));
 });
 
 test('review/attempt-scope: recycled live IDs in later Agent lifecycles keep distinct durable samples and survive JSON reopen', async t => {

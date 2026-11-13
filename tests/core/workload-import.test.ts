@@ -90,6 +90,26 @@ test('default config and bundled JSON match, validate, and have no extra model c
   assert.deepEqual(validateConfig(saved), DEFAULT_CONFIG); assert.equal(saved.extraPlanningCall, false);
   for (const invalid of [{ performanceAlpha: 0 }, { workloadAlpha: 1.1 }, { heuristicVisibleTps: Infinity }, { referenceLowFactor: 3 }, { minConditionalSamples: 0 }, { toolResultTokensPerCall: { low: 5, high: 1 } }]) assert.throws(() => validateConfig(invalid));
 });
+test('comparable completed workloads replace the fixed template spread only after enough samples', () => {
+  const observations = Array.from({ length: 10 }, (_, index) => ({
+    requestCount: index === 9 ? 100 : 8,
+    visibleOutputTokens: index === 9 ? 100_000 : 2_400,
+    toolMs: index === 9 ? 3_600_000 : 30_000,
+  }));
+  const calibrated = estimateWorkload(features('修改现有项目并运行测试'), route, { observations });
+  assert.equal(calibrated.low.requests.length, 8);
+  assert.equal(calibrated.high.requests.length, 8, 'Stable local tasks must not inherit the 6–40 call template ratio');
+  assert.equal(calibrated.workloadSamples, 10);
+  assert.ok(calibrated.reasons.includes('local-workload-distribution'));
+  const output = calibrated.high.requests.reduce((sum, request) => sum + request.visibleOutputTokens.high, 0);
+  assert.ok(output >= 2_400 && output <= 2_407, 'Only per-request integer rounding may increase the observed budget');
+  assert.ok(Math.abs(calibrated.high.tools.reduce((sum, tool) => sum + tool.durationMs.high, 0) - 30_000) < 1e-6);
+  const insufficient = estimateWorkload(features('修改现有项目并运行测试'), route, { observations: observations.slice(0, 4) });
+  assert.equal(insufficient.high.requests.length, 40, 'Sparse data must not imply precision');
+  assert.equal(insufficient.workloadSamples, 0);
+  assert.equal(calibrated.origin, 'local-measured');
+});
+
 test('invalid/inverted template budgets are rejected before use', () => {
   assert.throws(() => validateTemplates([{ ...DEFAULT_TEMPLATES[0], requestCount: { low: 2, high: 1 } }]));
   assert.throws(() => estimateWorkload(features('anything', { currentInputTokens: -1 }), route));

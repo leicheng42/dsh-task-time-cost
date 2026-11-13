@@ -2,11 +2,11 @@
 
 | Area | Target or boundary |
 | --- | --- |
-| Candidate | 0.2.8-beta.2 public preview; original P0 incomplete |
+| Candidate | 0.2.9-beta.1 public preview; original P0 incomplete |
 | Host | Windows DSH Desktop 0.2.2-rc.2 |
 | Runtime | Node 24+, Cordis 4.1.0, Typert 0.2.2-rc.2, aligned Zod 4.6.6 |
 | Client | DSH module factory, one external Host React, public Slot contracts and theme tokens |
-| Algorithm | p0-0.2.4; current-turn records plus explicit optional session aggregates |
+| Algorithm | p0-0.2.9; comparable workload distributions, current-turn records and optional session aggregates |
 | Other environments | Other DSH releases, macOS/Linux, ACP and mobile unverified |
 
 ## Lifecycle / 生命周期

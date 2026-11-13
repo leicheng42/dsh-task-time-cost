@@ -2,9 +2,9 @@ import * as React from 'react';
 import { createPortal } from 'react-dom';
 import type { Context } from '@deepseek-ai/cordis';
 import type { ChatSnapshot, TurnTailChatData } from '@deepseek-ai/dsh-client-ui-chat/client';
-import type { EstimateSnapshot, EstimatorRemote } from '../shared/wire.ts';
+import type { EstimatorRemote } from '../shared/wire.ts';
 import { EstimateDetails } from './details.tsx';
-import { costSummary, costUnconfigured, formatDuration, formatEta, isTerminal, localTiming } from './format.ts';
+import { compactTokens, compactTokenRange, costSummary, costUnconfigured, formatDuration, formatEta, isTerminal, isWideEta, localTiming } from './format.ts';
 import { en, zh, LOCALE_NAMESPACE } from './locale.ts';
 import type { Translate } from './locale.ts';
 import { Management } from './management.tsx';
@@ -42,33 +42,6 @@ function readMarker(value: unknown): ProjectionMarker | null {
   return { revision: value.revision, currentTurn: value.currentTurn };
 }
 const idleSubscribe = () => () => {};
-
-/** Compact human token count, matching the host's own usage meta. */
-function compactTokens(value: number | null | undefined): string | null {
-  if (value == null || !Number.isFinite(value) || value < 0) return null;
-  if (value < 1_000) return String(Math.round(value));
-  if (value < 1_000_000) {
-    const scaled = value / 1_000;
-    return `${scaled >= 100 ? Math.round(scaled) : Number(scaled.toFixed(1))}k`;
-  }
-  const scaled = value / 1_000_000;
-  return `${scaled >= 100 ? Math.round(scaled) : Number(scaled.toFixed(1))}M`;
-}
-
-/**
- * The bare count, for places whose own label already says "tokens": a row
- * reading `Observed tokens  46.2M tokens` repeats the unit the label supplied.
- */
-function tokenValue(snapshot: EstimateSnapshot | null, _locale: string, t: Translate): string {
-  if (!snapshot) return t('unknown');
-  const observed = compactTokens(snapshot.observedTokens);
-  if (observed) return observed;
-  const estimate = snapshot.estimatedTotalTokens;
-  if (!estimate) return t('unknown');
-  const low = compactTokens(estimate.low) ?? t('unknown');
-  const high = compactTokens(estimate.high) ?? t('unknown');
-  return low === high ? low : t('range', { low, high });
-}
 
   /**
    * Small clock that carries the task state by colour instead of by text: the
@@ -118,7 +91,7 @@ export function applyClient(ctx: Context): void {
     const frozenNow = React.useCallback(() => state.receivedAt, [state.receivedAt]);
     const now = React.useSyncExternalStore(ticking ? store.clock.subscribe : idleSubscribe, ticking ? store.clock.getSnapshot : frozenNow, frozenNow);
     const [expanded, setExpanded] = React.useState(false);
-    const [view, setView] = React.useState<'summary' | 'details' | 'settings'>('summary');
+    const [view, setView] = React.useState<'summary' | 'more' | 'details' | 'settings'>('summary');
     const summary = React.useRef<HTMLButtonElement>(null);
     const panel = React.useRef<HTMLDivElement>(null);
     const firstAction = React.useRef<HTMLButtonElement>(null);
@@ -140,12 +113,14 @@ export function applyClient(ctx: Context): void {
         if (event.key !== 'Escape') return;
         event.preventDefault();
         setExpanded(false);
+        setView('summary');
         summary.current?.focus();
       };
       const onOutside = (event: Event) => {
         const target = event.target as Node | null;
         if (!target || summary.current?.contains(target) || panel.current?.contains(target)) return;
         setExpanded(false);
+        setView('summary');
       };
       document.addEventListener('keydown', onKeyDown);
       document.addEventListener('pointerdown', onOutside, true);
@@ -162,16 +137,18 @@ export function applyClient(ctx: Context): void {
     const elapsed = formatDuration(timing?.activeMs ?? snapshot?.elapsedActiveMs, t);
     const retained = !tail && sessionRemaining === null && state.lastForecast
       && (!snapshot || state.lastForecast.taskKey === snapshot.taskKey) && (active || !snapshot && targetTurn !== null) ? state.lastForecast : null;
-    const eta = formatEta(sessionRemaining ?? retained?.remainingMs, t);
+    const displayedRemaining = sessionRemaining ?? retained?.remainingMs;
+    const wide = isWideEta(displayedRemaining);
+    const eta = formatEta(displayedRemaining, t);
     // Keep the last time reference while the new plan is unavailable. It is
     // frozen and labelled in the dialog, never used as a current cost budget.
-    const line = tail ? t('doneElapsed', { elapsed }) : (active && sessionRemaining !== null || retained) ? t('etaEstimate', { value: eta }) : t('titleShort');
+    const line = tail ? t('doneElapsed', { elapsed }) : (active && sessionRemaining !== null || retained) ? wide ? t('etaUncertain') : t('etaEstimate', { value: eta }) : t('titleShort');
     const unconfigured = !!snapshot && costUnconfigured(snapshot);
     const referencePrice = snapshot?.reasons.includes('public-reference-price-not-provider-bill') ?? false;
     return <div className="dte" data-slot={tail ? 'assistant-actions' : 'composer-dock'}>
       <style>{styles}</style>
       <button type="button" className={tail ? 'dte-line dte-line-tail' : 'dte-line'} aria-haspopup="dialog" aria-expanded={expanded} aria-controls={`${id}-panel`}
-        aria-label={line} onClick={() => setExpanded((value) => !value)} ref={summary}
+        aria-label={line} onClick={() => { setView('summary'); setExpanded((value) => !value); }} ref={summary}
         title={terminal ? line : snapshot || retained ? t('etaFull', { value: eta }) : t('title')}>
         <ClockIcon state={snapshot?.state ?? 'idle'} />
         <span className="dte-line-text">{line}</span>
@@ -182,22 +159,29 @@ export function applyClient(ctx: Context): void {
         <div className="dte-pop-head">
           <span className="dte-pop-title"><ClockIcon state={snapshot?.state ?? 'idle'} />{t(tail ? 'turnTimeTitle' : 'titleShort')}</span>
           <span className="dte-pop-value dte-tabular">{terminal ? elapsed : eta}</span>
+          <button type="button" ref={firstAction} className="dte-more" aria-label={t('more')} title={t('more')} aria-expanded={view !== 'summary'} aria-controls={`${id}-more`}
+            onClick={() => setView(view === 'summary' ? 'more' : 'summary')}>
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="3" cy="8" r="1.2" fill="currentColor" /><circle cx="8" cy="8" r="1.2" fill="currentColor" /><circle cx="13" cy="8" r="1.2" fill="currentColor" /></svg>
+          </button>
         </div>
         <div className="dte-pop-rule" aria-hidden="true" />
         <dl className="dte-summary">
           <dt>{t('activeTime')}</dt><dd>{snapshot ? elapsed : t('unknown')}</dd>
           <dt>{t('estimatedTotal')}</dt><dd>{formatEta(snapshot?.estimatedTotalMs ?? retained?.estimatedTotalMs, t)}</dd>
-          <dt>{t('tokenTotal')}</dt><dd>{tokenValue(snapshot, localeSnapshot.active, t)}</dd>
+          <dt>{t('tokenTotal')}</dt><dd>{snapshot?.observedTokenStatus === 'partial' ? t('partialKnown', { value: compactTokens(snapshot.observedTokens, t) }) : compactTokens(snapshot?.observedTokens, t)}</dd>
+          {!terminal && <><dt>{t('tokenRemainingOutput')}</dt><dd title={t('tokenRemainingNote')}>{compactTokenRange(snapshot?.estimatedRemainingOutputTokens, t)}</dd>
+            {snapshot?.estimatedTotalTokens != null && <><dt>{t('tokenForecast')}</dt><dd>{compactTokenRange(snapshot.estimatedTotalTokens, t)}</dd></>}</>}
           <dt>{t(referencePrice ? 'referenceCost' : 'knownCost')}</dt><dd>{unconfigured ? t('unpriced') : snapshot ? costSummary(snapshot, localeSnapshot.active, t) : t('unknown')}</dd>
         </dl>
+        {wide && !terminal && <p className="dte-muted dte-small">{t('wideEtaHint')}</p>}
         {retained && <p className="dte-muted dte-small">{t('retainedForecastHint', { time: new Date(retained.updatedAt).toLocaleString(localeSnapshot.active) })}</p>}
         {referencePrice && <p className="dte-muted dte-small">{t('referencePriceHint')}</p>}
         {unconfigured && <p className="dte-muted dte-small">{t('unpricedHint')}</p>}
         {!unconfigured && snapshot && (snapshot.observedCostStatus === 'partial' || snapshot.forecastCostStatus === 'partial') && <p className="dte-muted dte-small">{t('incompleteCostDetail')}</p>}
         {state.error && <p className="dte-error dte-small" role="alert">{errorText(state.error, t)}</p>}
-        <div className="dte-pop-actions">
-          <button type="button" ref={firstAction} className={view === 'details' ? 'dte-link dte-link-active' : 'dte-link'} aria-pressed={view === 'details'} onClick={() => setView(view === 'details' ? 'summary' : 'details')}>{t('details')}</button>
-          <button type="button" className={view === 'settings' ? 'dte-link dte-link-active' : 'dte-link'} aria-pressed={view === 'settings'} onClick={() => setView(view === 'settings' ? 'summary' : 'settings')}>{t('settings')}</button>
+        <div id={`${id}-more`} className="dte-pop-actions" hidden={view === 'summary'}>
+          <button type="button" className={view === 'details' ? 'dte-link dte-link-active' : 'dte-link'} aria-pressed={view === 'details'} onClick={() => setView(view === 'details' ? 'more' : 'details')}>{t('details')}</button>
+          <button type="button" className={view === 'settings' ? 'dte-link dte-link-active' : 'dte-link'} aria-pressed={view === 'settings'} onClick={() => setView(view === 'settings' ? 'more' : 'settings')}>{t('settings')}</button>
           <span className="dte-spacer" />
           {view === 'details' && <button type="button" className="dte-link" disabled={state.pending} onClick={refresh}>{t('refresh')}</button>}
         </div>

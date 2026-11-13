@@ -9,7 +9,7 @@ function Facts({ rows }: { rows: ReadonlyArray<readonly [string, React.ReactNode
 
 const reasonKeys: Record<string, MessageKey> = {
   'engineering-assumption': 'reasonHeuristic', 'engineering-workload-template': 'reasonWorkloadTemplate',
-  'local-workload-ewma': 'reasonLocalWorkload', 'public-endpoint-reference': 'reasonPublicEndpoint',
+  'local-workload-ewma': 'reasonLocalWorkload', 'local-workload-distribution': 'reasonWorkloadDistribution', 'public-endpoint-reference': 'reasonPublicEndpoint',
   'reference-range-not-calibrated-confidence': 'reasonReferenceRange', 'conditional-samples-insufficient': 'reasonFewSamples',
   'reference-range-exhausted-reassessing': 'reasonReassessing', 'output-budget-exhausted-task-still-running': 'reasonBudgetExhausted',
   'waiting-for-model-response': 'reasonWaitingModel', 'mixed-route-upstream-unknown': 'reasonMixedRoute',

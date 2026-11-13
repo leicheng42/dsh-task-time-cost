@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { costSummary, costUnconfigured, formatDecimal, formatDuration, formatDurationRange, formatEta, formatLatency, formatMoneyList, formatMoneyRanges, formatNumber, formatProfileMetrics, formatState, formatTokenRange, localTiming, remainingSummary } from '../../src/client/format.ts';
+import { compactTokens, compactTokenRange, costSummary, costUnconfigured, formatDecimal, formatDuration, formatDurationRange, formatEta, formatLatency, formatMoneyList, formatMoneyRanges, formatNumber, formatProfileMetrics, formatState, formatTokenRange, isWideEta, localTiming, remainingSummary } from '../../src/client/format.ts';
 import { en, zh } from '../../src/client/locale.ts';
 import type { ProfileSummary } from '../../src/shared/wire.ts';
 import { parseConfiguration } from '../../src/client/config.ts';
@@ -104,6 +104,24 @@ test('ETA bounds are rounded to a coarse step so the chip keeps a stable width',
   assert.equal(formatEta({ low: 600_000, high: 900_000 }, z), '10m–15m');
   assert.equal(formatEta({ low: 100, high: 50 }, z), '未知', 'an invalid span is unknown, never a guess');
   assert.equal(formatEta(null, z), '未知');
+});
+
+test('very broad ETA references are identified without truncating the underlying bounds', () => {
+  const wide = { low: 120_000, high: 2_400_000 };
+  assert.equal(isWideEta(wide), true);
+  assert.equal(formatEta(wide, t), '2m–40m', 'The full computed range remains available in the dialog');
+  assert.equal(isWideEta({ low: 600_000, high: 900_000 }), false);
+  assert.equal(isWideEta({ low: 0, high: 120_000 }), false);
+  assert.equal(isWideEta(null), false);
+});
+
+test('compact predicted token ranges stay independent of observed totals and preserve zero/unknown', () => {
+  assert.equal(compactTokens(1_234_567, t), '1.2M');
+  assert.equal(compactTokens(0, t), '0');
+  assert.equal(compactTokens(null, t), 'Unknown');
+  assert.equal(compactTokenRange({ low: 2_000, high: 8_000 }, t), '2k–8k');
+  assert.equal(compactTokenRange({ low: 0, high: 0 }, t), '0');
+  assert.equal(compactTokenRange(null, t), 'Unknown');
 });
 
 test('advanced configuration accepts an object and rejects arrays and primitives', () => {
