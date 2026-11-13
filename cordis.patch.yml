@@ -1,0 +1,4 @@
+- insert:
+    - id: task-time-cost
+      name: dsh-task-time-cost
+      config: {}

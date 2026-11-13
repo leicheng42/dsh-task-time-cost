@@ -1,0 +1,21 @@
+{
+  "performanceAlpha": 0.2,
+  "workloadAlpha": 0.2,
+  "predictionRefreshMs": 5000,
+  "timerRefreshMs": 1000,
+  "historyRetentionDays": 90,
+  "profileStaleDays": 7,
+  "maxSamplesPerBucket": 200,
+  "minConditionalSamples": 5,
+  "heuristicFirstTextMs": 10000,
+  "heuristicVisibleTps": 80,
+  "heuristicTotalCallMs": 30000,
+  "referenceLowFactor": 0.5,
+  "referenceHighFactor": 2.5,
+  "minGenerationWindowMs": 250,
+  "maxVisibleTps": 2000,
+  "toolResultTokensPerCall": { "low": 0, "high": 4000 },
+  "extraPlanningCall": false,
+  "magpieIntegration": false,
+  "saveRawContent": false
+}

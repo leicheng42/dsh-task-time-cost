@@ -1,0 +1,10 @@
+node_modules/
+*.tgz
+coverage/
+artifacts/
+*.tsbuildinfo
+/AGENTS.md
+/PROGRESS.md
+/release/
+/docs/*
+!/docs/public/

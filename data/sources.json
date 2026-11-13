@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "version": "engineering-v1",
+  "date": "2026-11-12",
+  "defaultSourceKind": "heuristic",
+  "notice": "All shipped baseline numbers are configurable engineering assumptions. No public measured benchmark samples are bundled. A separate public models.dev catalog supplies list-price references, not provider invoices.",
+  "sources": [
+    { "id": "user-design-v1.1", "title": "任务耗时与费用预估：DSH 插件开发与上架规格 v1.1", "sourceKind": "heuristic", "url": null, "dataVersion": "engineering-v1", "sampleCount": null, "scope": "Sections 5.3, 6.2, 12: engineering startup templates; not measured data" }
+  ],
+  "referenceOnly": [
+    { "title": "Artificial Analysis Coding Agents", "url": "https://artificialanalysis.ai/agents/coding-agents/", "imported": false },
+    { "title": "Harbor trial result schema", "url": "https://github.com/harbor-framework/harbor/blob/main/src/harbor/models/trial/result.py", "imported": false },
+    { "title": "Magpie usage and pricing reference", "url": "https://github.com/yetone/magpie/blob/main/docs/reference.md", "imported": false }
+  ]
+}

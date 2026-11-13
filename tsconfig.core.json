@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["src/shared/**/*.ts", "tests/core/**/*.ts"],
+  "exclude": ["src/shared/remote-contract.ts"]
+}

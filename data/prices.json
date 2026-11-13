@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "version": "unpriced-v1",
+  "notice": "No verifiable current provider price is bundled. Add explicit provider/model/endpoint prices in per-million-token units. Missing prices remain unknown; an explicit free entry alone may mark a route free.",
+  "entries": [],
+  "sameAs": []
+}

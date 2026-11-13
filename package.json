@@ -1,0 +1,120 @@
+{
+  "name": "dsh-task-time-cost",
+  "version": "0.2.8-beta.1",
+  "private": true,
+  "type": "module",
+  "description": "Remaining-time, Token budget and reference cost estimates for DeepSeek Harness, calibrated locally without a separate model call.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24",
+    "dsh": "0.2.2-rc.2"
+  },
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "lib",
+    "src",
+    "cordis.patch.yml",
+    "locale",
+    "icon.svg",
+    "data",
+    "scripts/import-public-prices.mjs",
+    "README.md",
+    "README.en.md",
+    "COMPATIBILITY.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "docs/public",
+    "CONTRIBUTING.md"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/**/*.test.ts",
+    "check": "npm run typecheck && npm test && npm run build",
+    "pack:check": "npm pack --dry-run --ignore-scripts"
+  },
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "task-estimation",
+    "eta",
+    "cost-estimation",
+    "token-usage",
+    "llm-observability",
+    "dsh",
+    "dsh-bundle",
+    "local-first",
+    "developer-tools"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "external": [
+        "react"
+      ],
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "4.1.0",
+    "@deepseek-ai/dsh-typert-protocol": "0.2.2-rc.2",
+    "@deepseek-ai/schemastery": "3.19.0"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.1.0",
+    "@deepseek-ai/dsh-agent": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-api-gateway": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-api-session-controller": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-client-connection": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-client-locale": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-client-ui-chat": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-client-ui-conversation": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-client-ui-slots": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-config-editor": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-llm": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-session": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-session-projection": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-storage-domain": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-storage-json": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-system-prompt": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-token-meter": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-tools": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-typert-protocol": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-typert-registry": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-user-approval": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-user-questions": "0.2.2-rc.2",
+    "@deepseek-ai/schemastery": "3.19.0",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "19.2.0",
+    "esbuild": "0.28.2",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "typescript": "~5.9.3",
+    "zod": "4.6.6"
+  },
+  "author": {
+    "name": "leicheng42",
+    "url": "https://github.com/leicheng42"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/leicheng42/dsh-task-time-cost.git"
+  },
+  "homepage": "https://github.com/leicheng42/dsh-task-time-cost#readme",
+  "bugs": {
+    "url": "https://github.com/leicheng42/dsh-task-time-cost/issues"
+  }
+}

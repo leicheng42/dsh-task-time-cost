@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Task time and cost estimator",
+    "description": "A reference for the wait: open the clock beside Token statistics for remaining time, elapsed time, Token budgets and cost references. Settings and calibration shows local route samples. No separate estimator call, saved message bodies or statistics uploads by default. Public list prices are not channel invoices; missing stays unknown. Preview for Windows / DSH 0.2.2-rc.2; exact native running-line placement is unsupported.",
+    "detail": "docs/public/DETAIL.md"
+  }
+}
