@@ -1,5 +1,10 @@
 # Changelog / 发行说明
 
+## 0.2.8-beta.2 — npm preview distribution
+
+- Enables public npm publication with the beta tag and adds direct DSH installation instructions.
+- Keeps the frozen GitHub beta.1 intact; runtime estimation, prices and algorithm p0-0.2.4 are unchanged.
+
 ## 0.2.8-beta.1 — public preview
 
 - Adds public repository/support metadata, pinned prebuilt installation instructions, bilingual single-image details and an original transparent icon.

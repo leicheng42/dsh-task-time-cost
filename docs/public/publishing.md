@@ -1,6 +1,6 @@
 # Distribution / 分发
 
-The public preview is distributed as a prebuilt GitHub Release archive from [leicheng42/dsh-task-time-cost](https://github.com/leicheng42/dsh-task-time-cost/releases). Source and support links name the authenticated maintainer. npm publication is not configured; the private guard remains enabled.
+The public preview is distributed as a prebuilt GitHub Release archive from [leicheng42/dsh-task-time-cost](https://github.com/leicheng42/dsh-task-time-cost/releases). Source and support links name the authenticated maintainer. npm previews use the explicit beta distribution tag. Package publishing targets the public npm registry; stable promotion is separate. The original GitHub beta.1 remains frozen.
 
 Preview publication does not complete original P0 acceptance. [Acceptance](acceptance.md), [compatibility](../../COMPATIBILITY.md) and per-release verification retain known gaps and unmeasured areas. Stable promotion needs its own evidence.
 

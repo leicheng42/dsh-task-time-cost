@@ -2,7 +2,7 @@
 
 | Area | Target or boundary |
 | --- | --- |
-| Candidate | 0.2.8-beta.1 public preview; original P0 incomplete |
+| Candidate | 0.2.8-beta.2 public preview; original P0 incomplete |
 | Host | Windows DSH Desktop 0.2.2-rc.2 |
 | Runtime | Node 24+, Cordis 4.1.0, Typert 0.2.2-rc.2, aligned Zod 4.6.6 |
 | Client | DSH module factory, one external Host React, public Slot contracts and theme tokens |
