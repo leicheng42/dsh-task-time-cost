@@ -6,7 +6,9 @@
 
 [![Preview](https://img.shields.io/github/v/release/leicheng42/dsh-task-time-cost?include_prereleases&label=preview)](https://github.com/leicheng42/dsh-task-time-cost/releases) [![CI](https://github.com/leicheng42/dsh-task-time-cost/actions/workflows/ci.yml/badge.svg)](https://github.com/leicheng42/dsh-task-time-cost/actions/workflows/ci.yml) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-![Illustration of time, workload and cost references](docs/public/preview.svg)
+![Actual plugin popup showing work time, forecast Tokens and reference costs](docs/public/screenshots/summary.png)
+
+*Real runtime capture: Windows / DSH Desktop 0.2.2-rc.2 / plugin0.2.9-beta.1. Values belong to the task at capture time; prices are public-catalog references.*
 
 ## What it does
 

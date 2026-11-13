@@ -6,7 +6,9 @@
 
 [![Preview](https://img.shields.io/github/v/release/leicheng42/dsh-task-time-cost?include_prereleases&label=preview)](https://github.com/leicheng42/dsh-task-time-cost/releases) [![CI](https://github.com/leicheng42/dsh-task-time-cost/actions/workflows/ci.yml/badge.svg)](https://github.com/leicheng42/dsh-task-time-cost/actions/workflows/ci.yml) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-![时间、工作量与费用参考示意图](docs/public/preview.svg)
+![真实插件浮窗：工作时间、预测 Token 与参考费用](docs/public/screenshots/summary.png)
+
+*真实运行截图：Windows / DSH Desktop 0.2.2-rc.2 / 插件 0.2.9-beta.1。图中数值属于拍摄时的任务，费用为公共目录参考。*
 
 ## 它能帮你做什么
 
