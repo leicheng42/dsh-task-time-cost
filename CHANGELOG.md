@@ -1,6 +1,6 @@
 # Changelog / 发行说明
 
-## 0.3.0 — candidate under verification
+## 0.3.0 — 2026-11-14
 
 - Reconstruct engineering scope from the official `goal/change` event before the first Agent turn and retain it through goal-sourced continuation messages. Store coarse scope metadata without objective text.
 - Separate small tasks, complete projects and multi-app systems for the first engineering reference. Complete systems no longer inherit a seconds-scale generic task budget; clearly label the initial reference and preserve its full interval.
@@ -9,7 +9,7 @@
 - Restore numeric central ETA references, preserve them in Client caches and retained details, and keep invalidated follow-up forecasts out of current token/cost budgets. Use expected request durations along serial chains so infrequent long waits are retained.
 - Wrap claiming question/approval answerers before their waterfall handlers, so human waiting pauses active time. Recover built-in blocking-question intervals after Host remounts, merge overlapping pauses once, and exclude them from tool work; no question content is retained.
 - Record bounded actual Host observer, dispatch, snapshot and flush timings without identifiers or content. Report measurements and their limitations separately from accuracy claims.
-- Algorithm `p0-0.3.0-goal3`; original initial predictions, usage and historical price resolutions remain unchanged. Stable publication follows the current acceptance report.
+- Algorithm `p0-0.3.0-goal3`; original initial predictions, usage and historical price resolutions remain unchanged. Artifact checks and actual observations are recorded separately in the release report.
 
 ## 0.2.9-beta.1 — narrower evidence-based budgets and simpler details
 

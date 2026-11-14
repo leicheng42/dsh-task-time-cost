@@ -192,7 +192,7 @@ const report = {
     'Desktop historical-retention evidence is independent of the isolated CLI profile.',
     'UI states and screenshot references come only from the actual UI proof; missing observations stay not-verified.',
     'Engineering timing priors are assumptions. Public catalog prices are list-price references; explicit user rates take precedence, and relay or subscription bills can differ.',
-    'No npm, GitHub or marketplace publication was performed.', ...uiBoundaries],
+    'This report verifies local artifacts; public npm/GitHub distribution is verified separately.', ...uiBoundaries],
 };
 await mkdir(release, { recursive: true });
 await writeFile(join(release, 'SHA256SUMS.txt'), `${sha256}  ${report.artifact}\n`, 'utf8');

@@ -2,9 +2,9 @@
 
 **A reference for the wait.** See remaining time, actual duration and cost references beside native Token statistics in DeepSeek Harness, calibrated to local routes without a separate estimator-model call.
 
-[中文](README.md) · [Download preview](https://github.com/leicheng42/dsh-task-time-cost/releases/tag/v0.2.9-beta.1) · [User guide](docs/public/guide.en.md) · [Report an issue](https://github.com/leicheng42/dsh-task-time-cost/issues/new/choose)
+[中文](README.md) · [Download stable](https://github.com/leicheng42/dsh-task-time-cost/releases/tag/v0.3.0) · [User guide](docs/public/guide.en.md) · [Report an issue](https://github.com/leicheng42/dsh-task-time-cost/issues/new/choose)
 
-[![Preview](https://img.shields.io/github/v/release/leicheng42/dsh-task-time-cost?include_prereleases&label=preview)](https://github.com/leicheng42/dsh-task-time-cost/releases) [![CI](https://github.com/leicheng42/dsh-task-time-cost/actions/workflows/ci.yml/badge.svg)](https://github.com/leicheng42/dsh-task-time-cost/actions/workflows/ci.yml) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Stable](https://img.shields.io/github/v/release/leicheng42/dsh-task-time-cost?label=stable)](https://github.com/leicheng42/dsh-task-time-cost/releases) [![CI](https://github.com/leicheng42/dsh-task-time-cost/actions/workflows/ci.yml/badge.svg)](https://github.com/leicheng42/dsh-task-time-cost/actions/workflows/ci.yml) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 <img src="docs/public/screenshots/summary-030.png" width="560" height="348" alt="Actual plugin showing a central ETA, the full reference range, forecast Tokens and reference costs" />
 
@@ -14,11 +14,17 @@
 
 </details>
 
-*Real runtime capture: Windows / DSH Desktop 0.2.2-rc.2 / the0.3.0 candidate under verification. The downloadable preview is0.2.9-beta.1. Values belong to the task at capture time; prices are public-catalog references.*
+<details><summary>Completed turn duration</summary>
+
+<img src="docs/public/screenshots/completed-030.png" width="560" height="250" alt="Naturally completed turn showing its actual duration, Tokens and public-reference cost" />
+
+</details>
+
+*Actual owned-component captures during 0.3.0 development on Windows / DSH Desktop 0.2.2-rc.2. Values belong to their capture-time tasks; prices are public references. These images are not accuracy benchmarks.*
 
 ## What it does
 
-These improvements describe the current 0.3.0 candidate source; the downloadable version remains the preview identified above.
+Version 0.3.0 provides these features:
 
 - **Start with the project scope:** read ordinary requests and real Goal objectives; complete multi-app systems receive a project-scale initial reference, then a full-objective model plan can revise it.
 - **Estimate the wait:** show a central time and the complete reference interval; sufficient comparable local tasks update the workload budget using their observed distribution.
@@ -29,10 +35,10 @@ These improvements describe the current 0.3.0 candidate source; the downloadable
 
 ## Install
 
-In DSH **Plugin Manager → Add plugin**, enter `dsh-task-time-cost@beta` for the preview. Both channels supply prebuilt files with no installation scripts.
+In DSH **Plugin Manager → Add plugin**, enter `dsh-task-time-cost@0.3.0` for the stable release. Both channels supply prebuilt files with no installation scripts.
 
 ```sh
-dsh plugin --profile desktop add dsh-task-time-cost@beta
+dsh plugin --profile desktop add dsh-task-time-cost@0.3.0
 ```
 
 Alternatively, install the pinned GitHub Release archive:
@@ -42,20 +48,20 @@ Alternatively, install the pinned GitHub Release archive:
 3. Open the **clock beside Token statistics** for forecast Tokens. **More (⋯) → Settings and calibration** shows route samples.
 
 ```text
-https://github.com/leicheng42/dsh-task-time-cost/releases/download/v0.2.9-beta.1/dsh-task-time-cost-0.2.9-beta.1.tgz
+https://github.com/leicheng42/dsh-task-time-cost/releases/download/v0.3.0/dsh-task-time-cost-0.3.0.tgz
 ```
 
 CLI (replace desktop with your profile):
 
 ```sh
-dsh plugin --profile desktop add https://github.com/leicheng42/dsh-task-time-cost/releases/download/v0.2.9-beta.1/dsh-task-time-cost-0.2.9-beta.1.tgz
+dsh plugin --profile desktop add https://github.com/leicheng42/dsh-task-time-cost/releases/download/v0.3.0/dsh-task-time-cost-0.3.0.tgz
 ```
 
-## Preview scope
+## Supported scope
 
-**0.2.9-beta.1: Windows / DSH Desktop 0.2.2-rc.2 / Node24+.** Other environments remain unverified. [Compatibility](COMPATIBILITY.md) and [acceptance](docs/public/acceptance.md) retain open gates.
+**0.3.0: Windows / DSH Desktop 0.2.2-rc.2 / Node 24+.** Other environments remain unverified. See [compatibility](COMPATIBILITY.md) and [acceptance scope](docs/public/acceptance.md).
 
-Time ranges are references, not promises or confidence intervals. Startup values are engineering priors. Full online-task accuracy, controlled provider comparisons and observer overhead remain unmeasured. Exact native running-line placement has no verified public seat; the entry is beside Tokens.
+Time ranges are references, not promises or confidence intervals. Startup values are engineering priors. The release report separates chronological replay from actual process overhead. Online full-Goal error distributions and controlled provider comparisons are not established. Exact native running-line placement has no verified public seat; the entry is beside Tokens.
 
 Prices are versioned list-price references or user rates, not subscription/relay invoices. Ambiguous reasoning/cache usage or incomplete future budgets stay unknown; currencies remain separate. Original price resolutions and initial forecasts are retained.
 

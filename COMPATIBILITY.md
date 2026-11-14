@@ -2,7 +2,7 @@
 
 | Area | Target or boundary |
 | --- | --- |
-| Candidate | 0.3.0 under verification; downloadable preview remains 0.2.9-beta.1 until the current acceptance report passes |
+| Release | 0.3.0; target-specific evidence and measurement limits accompany the archive |
 | Host | Windows DSH Desktop 0.2.2-rc.2 |
 | Runtime | Node 24+, Cordis 4.1.0, Typert 0.2.2-rc.2, aligned Zod 4.6.6 |
 | Client | DSH module factory, one external Host React, public Slot contracts and theme tokens |
@@ -15,7 +15,7 @@ Package import, factory evaluation, Client apply, rendered UI, cold page boot an
 
 Native graph-stream failures and shared-batch404s have been observed. A later recovered page can demonstrate recovery and allow a new lifecycle test; it does not prove a Core fix. A failed old observation is retained alongside the successful retest, with its version and document scope.
 
-精确原生运行状态行内 ETA 仍缺已核验的公开扩展槽。原始规格 §3.2 和 §15.8 明确允许使用公开 composer dock 替代；此版本在原生 Token 旁显示 ETA，不改写宿主 DOM 或核心，也不声称改过原生运行文案。正式版须验证这个允许的实际位置。历史 UI、Console、保留及归档结果均不自动变成本版通过。
+精确原生运行状态行内 ETA 仍缺已核验的公开扩展槽。原始规格 §3.2 和 §15.8 明确允许使用公开 composer dock 替代；此版本在原生 Token 旁显示 ETA，不改写宿主 DOM 或核心，也不声称改过原生运行文案。已核验这一允许的实际位置、完成态动作和原生统计控件的可用性。历史 UI、Console、保留及归档结果均不自动变成本版通过。
 
 ## Durable data / 持久数据
 

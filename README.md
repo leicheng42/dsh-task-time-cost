@@ -2,9 +2,9 @@
 
 **让等待有个参考。** 在 DeepSeek Harness 的 Token 统计旁，查看剩余时间、实际用时和费用参考；预估随本地路由表现持续校准，无需另起估价模型。
 
-[English](README.en.md) · [下载预览版](https://github.com/leicheng42/dsh-task-time-cost/releases/tag/v0.2.9-beta.1) · [使用指南](docs/public/guide.zh.md) · [反馈问题](https://github.com/leicheng42/dsh-task-time-cost/issues/new/choose)
+[English](README.en.md) · [下载稳定版](https://github.com/leicheng42/dsh-task-time-cost/releases/tag/v0.3.0) · [使用指南](docs/public/guide.zh.md) · [反馈问题](https://github.com/leicheng42/dsh-task-time-cost/issues/new/choose)
 
-[![Preview](https://img.shields.io/github/v/release/leicheng42/dsh-task-time-cost?include_prereleases&label=preview)](https://github.com/leicheng42/dsh-task-time-cost/releases) [![CI](https://github.com/leicheng42/dsh-task-time-cost/actions/workflows/ci.yml/badge.svg)](https://github.com/leicheng42/dsh-task-time-cost/actions/workflows/ci.yml) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Stable](https://img.shields.io/github/v/release/leicheng42/dsh-task-time-cost?label=stable)](https://github.com/leicheng42/dsh-task-time-cost/releases) [![CI](https://github.com/leicheng42/dsh-task-time-cost/actions/workflows/ci.yml/badge.svg)](https://github.com/leicheng42/dsh-task-time-cost/actions/workflows/ci.yml) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 <img src="docs/public/screenshots/summary-030.png" width="560" height="348" alt="真实插件浮窗：中心时间预估、完整参考范围、预测 Token 与参考费用" />
 
@@ -14,11 +14,17 @@
 
 </details>
 
-*真实运行截图：Windows / DSH Desktop 0.2.2-rc.2 / 正在验收的 0.3.0 候选版。当前可下载预览版为 0.2.9-beta.1；图中数值属于拍摄时的任务，费用为公共目录参考。*
+<details><summary>完成后的本轮用时</summary>
+
+<img src="docs/public/screenshots/completed-030.png" width="560" height="250" alt="自然完成任务的本轮实际用时、Token 和公共参考费用" />
+
+</details>
+
+*Windows / DSH Desktop 0.2.2-rc.2 / 0.3.0 开发期间的真实截图，仅裁剪插件自身区域。数值属于拍摄时的任务，费用为公共目录参考；截图不是准确率基准。*
 
 ## 它能帮你做什么
 
-以下改进属于当前 0.3.0 候选源码，公开可下载版仍为上方标明的预览版。
+0.3.0 提供以下功能：
 
 - **首次也看项目规模**：从普通任务和真实 Goal 目标识别完整工程；多端系统先给项目级「初估」，再由执行模型的整个目标计划修正，避免先按短回复显示几十秒。
 - **估计还要多久**：显示中心时间与完整参考范围；本地可比样本足够时，使用实际工作量分布更新预算。
@@ -29,10 +35,10 @@
 
 ## 安装
 
-在 DSH 的**插件管理 → 添加插件**中输入 `dsh-task-time-cost@beta` 安装预览版；两个分发渠道均提供预构建文件，无需运行安装脚本。
+在 DSH 的**插件管理 → 添加插件**中输入 `dsh-task-time-cost@0.3.0` 安装稳定版；两个分发渠道均提供预构建文件，无需运行安装脚本。
 
 ```sh
-dsh plugin --profile desktop add dsh-task-time-cost@beta
+dsh plugin --profile desktop add dsh-task-time-cost@0.3.0
 ```
 
 也可从 GitHub Release 安装固定版本归档：
@@ -42,20 +48,20 @@ dsh plugin --profile desktop add dsh-task-time-cost@beta
 3. 在会话底部 **Token 统计旁点击时钟**；预测 Token 直接显示，右上角 **⋯ → 设置与校准**查看本地路由数据。
 
 ```text
-https://github.com/leicheng42/dsh-task-time-cost/releases/download/v0.2.9-beta.1/dsh-task-time-cost-0.2.9-beta.1.tgz
+https://github.com/leicheng42/dsh-task-time-cost/releases/download/v0.3.0/dsh-task-time-cost-0.3.0.tgz
 ```
 
 CLI（将 desktop 换成你的实际 profile）：
 
 ```sh
-dsh plugin --profile desktop add https://github.com/leicheng42/dsh-task-time-cost/releases/download/v0.2.9-beta.1/dsh-task-time-cost-0.2.9-beta.1.tgz
+dsh plugin --profile desktop add https://github.com/leicheng42/dsh-task-time-cost/releases/download/v0.3.0/dsh-task-time-cost-0.3.0.tgz
 ```
 
-## 预览版适用范围
+## 支持范围
 
-**0.2.9-beta.1：Windows / DSH Desktop 0.2.2-rc.2 / Node 24+。** 当前支持范围内提供试用；其他平台和宿主版本未验证。[兼容记录](COMPATIBILITY.md)与[验收标准](docs/public/acceptance.md)保留未完成项。
+**0.3.0：Windows / DSH Desktop 0.2.2-rc.2 / Node 24+。** 其他平台和宿主版本未验证。详见[兼容记录](COMPATIBILITY.md)与[验收范围](docs/public/acceptance.md)。
 
-时间范围是参考，不是完成承诺或统计置信区间。默认性能基线是工程起点；完整在线整任务准确率、供应商对比和观察开销尚未测量。精确“深度求索中，用时…”旁的位置缺公开扩展槽，目前入口位于 Token 旁。
+时间范围是参考，不是完成承诺或统计置信区间。默认性能基线是工程起点；发行报告分别记录时序重放与实际进程开销。在线完整 Goal 的误差分布和受控供应商对比尚未建立。精确“深度求索中，用时…”旁的位置缺公开扩展槽，目前入口位于 Token 旁。
 
 费用使用带版本的公共目录或用户费率，不代表订阅或中转渠道账单。隐藏推理、缓存语义或未来预算不完整时保留未知；不同币种分开。旧价格版本和初始预测保留。
 

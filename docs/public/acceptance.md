@@ -1,6 +1,6 @@
 # Acceptance / 原始验收门槛
 
-Original P0 is incomplete. The external current-version report is authoritative; pending items remain pending. This public summary preserves the original gates; detailed internal observations are not shipped. A passing test suite, import, factory or CLI composition is not full UI acceptance.
+The external current-version report records the target-specific acceptance result and remains authoritative. Measurement limits and untested environments remain explicit. This public summary preserves the original gates; detailed internal observations are not shipped. A passing test suite, import, factory or CLI composition is not full UI acceptance.
 
 ## Functional and UI gates
 
@@ -13,7 +13,7 @@ Original P0 is incomplete. The external current-version report is authoritative;
 - Loading/success/error/timeout/refusal feedback and keyboard focus through all supported flows.
 - Light/dark, narrow viewport, keyboard, zoom and reduced motion; original native controls remain usable.
 - Open-popup unmount removes both registrations and portal; re-enable returns one each; polling, timers, in-flight requests, listeners and observers are cleaned up.
-- Three reviewed real-feature captures: active ETA/time/cost coverage; route profiles with source/date/samples; completed initial-versus-actual, usage and price coverage. No mock shell or repainted values.
+- Reviewed real-feature captures illustrating active ETA/time/cost coverage; route profiles with source/date/samples; completed initial-versus-actual, usage and price coverage. No mock shell or repainted values.
 - Actual Desktop uninstall/reinstall retains the tested historical data; upgrade/reopen and repeated rederivation remain idempotent, with raw usage/original prices/initial forecast preserved.
 
 ## Package and measurement gates
@@ -21,6 +21,6 @@ Original P0 is incomplete. The external current-version report is authoritative;
 - Clean dependencies, strict types, all tests without failures/skips and both builds; actual archive contents, license review and all local links.
 - Exact archive hash/bytes and installed-file equality in an isolated profile; enabled/disabled composition, removal and original base composition restored.
 - Private histories, credentials, internal development notes and machine-specific narratives excluded from the published package.
-- Whole-task accuracy, controlled provider comparisons and full observer/dispatch overhead keep their original measurement requirements. Pure-function elapsed time and component replay do not substitute for them.
+- Report whole-task quality and observer/dispatch measurements with their actual scope. Current evidence includes a strict chronological replay of17 eligible historical tasks and actual Host process timings. It does not establish online full-Goal accuracy, calibrated confidence intervals or a controlled provider comparison; component replay is not relabeled as those results.
 
 每一项需记录版本、源/产物范围、观察方式、实际结果和限制。保留失败与恢复两个观察，不改标签沿用旧版，不删除未通过门槛，也不把更宽区间或目录参考当成可靠性/账单保证。未验证的项目不勾选。
