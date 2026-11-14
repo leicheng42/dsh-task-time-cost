@@ -2,7 +2,7 @@ import raw from '../../data/models-dev-prices.json' with { type: 'json' };
 import { resolvePrice } from './pricing.ts';
 import type { PriceEntry, PriceIdentity, PriceResolution, PriceRule, SameAs, UnitPrices } from './pricing.ts';
 
-type Row = { provider: string; model: string; prices: UnitPrices; rules?: PriceRule[] };
+type Row = { provider: string; model: string; name?: string; prices: UnitPrices; rules?: PriceRule[] };
 const catalog = raw as unknown as { version: string; retrievedAt: string; source: string; rows: Row[] };
 export const publicCatalogInfo = { version: catalog.version, retrievedAt: catalog.retrievedAt, source: catalog.source, rows: catalog.rows.length };
 // Prefer the publishing lab's list price to a reseller's rate when the route
@@ -25,6 +25,29 @@ function choose(id: string, provider: string): Row | null {
   if (!pool.length || new Set(pool.map(signature)).size !== 1) return null;
   return pool[0];
 }
+// A gateway may rename a catalog model (magpie's `auto/deepseek-v4.1-flash`
+// is DeepSeek's own `deepseek-flash`, which models.dev names "DeepSeek V4.1
+// Flash 1017"). The publisher's display name is the only identity link the
+// catalog carries, so the bridge stays deliberately narrow: the row must come
+// from a lab, the lab's own name must be the leading token of the model id
+// (so resellers such as nvidia or mistral cannot lend their rate), every id
+// token must prefix the display name, and more than one match is refused. Ids
+// are never rewritten: `deepseek-v4-flash` does not collapse into v4.1.
+const tokenize = (text: string) => text.toLowerCase().split(/[^a-z0-9.]+/).filter(Boolean);
+const labNames: { row: Row; provider: string[]; tokens: string[] }[] = [];
+for (const row of catalog.rows) {
+  if (!row.name || !labs.has(row.provider)) continue;
+  labNames.push({ row, provider: tokenize(row.provider), tokens: tokenize(row.name) });
+}
+function chooseByDisplayName(model: string): Row | null {
+  const parts = tokenize(model);
+  if (parts.length < 2) return null;
+  const matches = labNames.filter(item => item.tokens.length >= parts.length
+    && item.provider.length && item.provider.every((token, i) => parts[i] === token)
+    && parts.every((part, i) => item.tokens[i] === part));
+  const rows = new Map(matches.map(item => [`${item.row.provider}/${item.row.model}`, item.row]));
+  return rows.size === 1 ? [...rows.values()][0] : null;
+}
 export function publicPriceFor(identity: PriceIdentity): PriceEntry | null {
   if (identity.billingIdentityConfirmed === false) return null;
   const model = identity.servedModelId ?? identity.requestedModelId;
@@ -34,6 +57,7 @@ export function publicPriceFor(identity: PriceIdentity): PriceEntry | null {
   // Peel routing namespaces only when the remaining *complete* model id is in
   // the catalog. Never strip versions, suffixes, service tiers or ':free'.
   for (let i = 0; i < Math.min(parts.length, 3) && !row; i++) row = choose(parts.slice(i).join('/'), provider);
+  if (!row) row = chooseByDisplayName(parts[parts.length - 1]);
   if (!row) return null;
   return { id: `models.dev:${row.provider}/${row.model}`, providerId: '*', modelId: model, priority: 'public-catalog',
     currency: 'USD', unit: 'per-million-tokens', prices: structuredClone(row.prices), rules: structuredClone(row.rules),

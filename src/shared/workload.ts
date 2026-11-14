@@ -1,4 +1,6 @@
 import { validateConfig } from './config.ts';
+import { inferWorkloadScale, SCOPE_BUDGETS } from './scope.ts';
+import type { WorkloadScale } from './scope.ts';
 import type { EstimatorConfig } from './config.ts';
 import { assertSpan, ewma, nonnegative } from './types.ts';
 import type { EstimateOrigin, Outcome, RouteIdentity, SourceKind, Span, TaskKind } from './types.ts';
@@ -6,6 +8,7 @@ import type { EstimateOrigin, Outcome, RouteIdentity, SourceKind, Span, TaskKind
 export interface TaskFeatures {
   /** Transient classifier input. Never included in returned plans/history. */
   prompt: string;
+  workloadScale?: WorkloadScale;
   currentInputTokens: number | null;
   explicitOutputTokens?: Span;
   artifactCount?: number;
@@ -154,10 +157,14 @@ export function estimateWorkload(input: TaskFeatures, route: RouteIdentity, opti
   if (input.currentInputTokens !== null && (!Number.isSafeInteger(input.currentInputTokens) || input.currentInputTokens < 0)) throw new TypeError('Invalid current input Token count');
   for (const key of ['artifactCount', 'fileCount', 'observedPlanSteps'] as const) if (input[key] !== undefined && (!Number.isSafeInteger(input[key]) || input[key]! < (key === 'fileCount' ? 0 : 1))) throw new TypeError(`Invalid ${key}`);
   if (input.attachmentTokens) assertSpan(input.attachmentTokens, 'attachmentTokens');
-  const classification = classifyTask(input, options.rules);
-  const template = templates.find(template => template.kind === classification.kind) ?? templates.find(template => template.kind === 'unknown');
+  const detected = classifyTask(input, options.rules);
+  const scale = input.workloadScale ?? inferWorkloadScale(input.prompt, detected.kind);
+  const classification = scale === 'task' ? detected : { kind: 'code' as const, reasons: [...detected.reasons, `scope-workload:${scale}`] };
+  const selected = templates.find(template => template.kind === classification.kind) ?? templates.find(template => template.kind === 'unknown');
+  const template: WorkloadTemplate | undefined = selected && scale !== 'task' && selected.sourceId !== 'executing-ai-plan'
+    ? { ...selected, ...SCOPE_BUDGETS[scale], sourceKind: 'heuristic', sourceId: `engineering-scope-${scale}-v1` } : selected;
   if (!template) throw new TypeError('No compatible workload template');
-  const history = options.history?.find(item => item.kind === classification.kind && item.samples > 0);
+  const history = scale === 'task' ? options.history?.find(item => item.kind === classification.kind && item.samples > 0) : undefined;
   let count = { ...template.requestCount };
   let output = { ...template.visibleOutputTokens };
   let tool = { ...template.toolMs };
@@ -181,7 +188,7 @@ export function estimateWorkload(input: TaskFeatures, route: RouteIdentity, opti
     output = scaleRange(output, history.visibleOutputTokens);
     tool = scaleRange(tool, history.toolMs);
     reasons.push('local-workload-ewma');
-  } else reasons.push('engineering-workload-template');
+  } else reasons.push(scale !== 'task' ? 'scope-engineering-prior' : 'engineering-workload-template');
   const artifacts = input.artifactCount ?? 1;
   if (artifacts > 1) {
     output = { low: output.low * artifacts, high: output.high * artifacts };

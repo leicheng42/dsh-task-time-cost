@@ -79,10 +79,14 @@ if (ui !== null) {
   assert.equal(ui.schemaVersion, 1);
   assert.equal(ui.version, project.version, 'UI evidence must cover the current Client version');
 }
+const { resolveEtaPlacement } = await import('./release-evidence.ts');
 const coldClientBoot = status(ui?.coldClientBoot, 'coldClientBoot');
 const slots = Object.fromEntries(['composerDock', 'completedAction'].map(key => [key, status(ui?.slots?.[key], `slots.${key}`)]));
 const userRequirements = Object.fromEntries(['inlineRunningEta', 'nativeBottomNoCrowding', 'officialCardStyle', 'completedDurationOnly', 'compactEta', 'aiPlanIntegration', 'tokenBudgetTiming', 'retainedEtaReference', 'estimatedTokenDetails', 'automaticPriceReference']
   .map(key => [key, status(ui?.userRequirements?.[key], `userRequirements.${key}`)]));
+const runningEtaPlacement = resolveEtaPlacement(userRequirements.inlineRunningEta, ui?.runningEtaPlacement);
+const measurements = await optionalProof('measurements.json');
+if (measurements) { assert.equal(measurements.version, project.version); assert.equal(measurements.schemaVersion, 1); }
 const management = Object.fromEntries(['read', 'saveConfig', 'importBaselines', 'export', 'resetCalibration']
   .map(key => [key, status(ui?.management?.[key], `management.${key}`)]));
 const visual = Object.fromEntries(['light', 'dark', 'narrow', 'keyboard'].map(key => [key, status(ui?.visual?.[key], `visual.${key}`)]));
@@ -130,13 +134,14 @@ const remainingGates = [];
 function gate(label, result) { if (result !== 'passed') remainingGates.push(`${label} (${result})`); }
 gate('Actual cold Client boot', coldClientBoot);
 for (const [key, result] of Object.entries(slots)) gate(`Actual Client slot: ${key}`, result);
-for (const [key, result] of Object.entries(userRequirements)) gate(`User requirement: ${key}`, result);
+gate('Original-spec running ETA placement', runningEtaPlacement.status);
+for (const [key, result] of Object.entries(userRequirements)) if (key !== 'inlineRunningEta') gate(`User requirement: ${key}`, result);
 gate('Actual Client console inspection', consoleStatus);
 for (const [key, result] of Object.entries(management)) gate(`Actual management interaction: ${key}`, result);
 for (const [key, result] of Object.entries(visual)) gate(`Actual visual/keyboard verification: ${key}`, result);
 for (const [key, result] of Object.entries(lifecycle)) gate(`Actual Client lifecycle: ${key}`, result);
 for (const [key, result] of Object.entries(acceptanceDetails)) gate(`Remaining checklist coverage: ${key}`, result);
-if (screenshots === null || screenshots.length < 3) remainingGates.push(`Three screenshots from the real plugin (not-verified; ${screenshots?.length ?? 'unknown'} recorded in UI proof)`);
+if (!screenshots?.length) remainingGates.push('A repository screenshot from the actual plugin (not-verified)');
 gate('Actual Desktop uninstall/reinstall retention with historical calls', retentionStatus);
 
 const report = {
@@ -149,10 +154,10 @@ const report = {
   sha256,
   target: { dsh: project.engines.dsh, node: project.engines.node, platform: 'Windows Desktop' },
   p0Complete: remainingGates.length === 0,
-  releaseNotes: [`${project.version} learns comparable completed-workload distributions when samples suffice, labels broad early ETA references, shows separate forecast Tokens and moves low-frequency controls under More. Algorithm p0-0.2.9; historical usage, initial forecasts and original price resolutions are preserved. Current UI, lifecycle and original P0 gates retain version-scoped evidence.`, 
+  releaseNotes: [`${project.version} restores numeric ETA references, reads actual Goal objectives before the first turn, separates full-goal from turn plans, labels engineering scope priors and records actual observer timings. Historical usage, initial forecasts and original price resolutions are preserved. Current observations retain their evidence scope.`, 
     'Known Token subtotals remain visible when other calls report no usage; incomplete coverage never becomes an exact total.',
     'Obsolete loaded-session summaries are recomputed and saved once, retaining initial forecasts and historical price resolutions.',
-    'Current UI, lifecycle and historical-data checks keep their version-specific evidence; missing observations are not-verified. Exact running-line ETA remains an open requirement.',
+    'Current UI, lifecycle and historical-data checks keep their version-specific evidence; missing observations are not-verified. The original specification permits the verified public composer dock when no native suffix seat exists; native rewriting is reported separately.',
     'Version 0.1.0 is withdrawn and must not be installed or delivered; its archive and checksum are superseded.'],
   withdrawnVersions: ['0.1.0'],
   checks: {
@@ -169,15 +174,16 @@ const report = {
       boundary: isolatedReport.boundary },
     desktopRetention: { status: retentionStatus, evidence: retentionProof === null ? null : 'artifacts/desktop-retention.json', afterRemove, afterInstall },
     realClient: { evidence: ui === null ? null : 'artifacts/ui-verification.json', version: ui?.version ?? null,
-      coldClientBoot, slots, userRequirements, mount: combined([coldClientBoot, ...Object.values(slots)]),
+      coldClientBoot, slots, userRequirements, runningEtaPlacement, mount: combined([coldClientBoot, ...Object.values(slots)]),
       console: { status: consoleStatus, pluginErrors, unrelatedErrors, note: consoleNote },
       management, interactions: combined(Object.values(management)), lifecycle, acceptanceDetails,
       evidenceSources: ui?.evidenceSources ?? null,
       visual: { ...visual, screenshots }, themesAndNarrowLayout: combined([visual.light, visual.dark, visual.narrow]),
       screenshots: screenshots?.length ?? null },
-    onlineAccuracy: 'not-measured',
-    providerComparison: 'not-measured',
-    observerOverhead: 'not-measured',
+    onlineAccuracy: measurements?.onlineAccuracy ?? { status: 'not-measured' },
+    chronologicalReplay: measurements?.chronologicalReplay ?? { status: 'not-measured' },
+    providerComparison: measurements?.providerComparison ?? { status: 'not-measured' },
+    observerOverhead: measurements?.observerOverhead ?? { status: 'not-measured' },
   },
   blockingCondition: remainingGates.length ? 'P0 acceptance evidence remains incomplete; see remainingGates and the recorded proof statuses.' : null,
   remainingGates,

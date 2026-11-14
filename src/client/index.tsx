@@ -143,7 +143,8 @@ export function applyClient(ctx: Context): void {
     const eta = formatEtaPoint(displayedRemaining, t, sessionRemaining !== null ? snapshot?.remainingTypicalMs : retained?.remainingTypicalMs);
     // Keep the last time reference while the new plan is unavailable. It is
     // frozen and labelled in the dialog, never used as a current cost budget.
-    const line = tail ? t('doneElapsed', { elapsed }) : (active && sessionRemaining !== null || retained) ? t(retained ? 'etaRetained' : 'etaEstimate', { value: eta }) : t('titleShort');
+    const initialScope = snapshot?.reasons.includes('scope-engineering-prior') ?? false;
+    const line = tail ? t('doneElapsed', { elapsed }) : (active && sessionRemaining !== null || retained) ? t(retained ? 'etaRetained' : initialScope ? 'etaInitial' : snapshot?.forecastScope === 'whole_goal' ? 'etaGoal' : 'etaEstimate', { value: eta }) : t('titleShort');
     const unconfigured = !!snapshot && costUnconfigured(snapshot);
     const referencePrice = snapshot?.reasons.includes('public-reference-price-not-provider-bill') ?? false;
     return <div className="dte" data-slot={tail ? 'assistant-actions' : 'composer-dock'}>
@@ -175,6 +176,7 @@ export function applyClient(ctx: Context): void {
             {snapshot?.estimatedTotalTokens != null && <><dt>{t('tokenForecast')}</dt><dd>{compactTokenRange(snapshot.estimatedTotalTokens, t)}</dd></>}</>}
           <dt>{t(referencePrice ? 'referenceCost' : 'knownCost')}</dt><dd>{unconfigured ? t('unpriced') : snapshot ? costSummary(snapshot, localeSnapshot.active, t) : t('unknown')}</dd>
         </dl>
+        {initialScope && !terminal && <p className="dte-muted dte-small">{t('initialScopeHint')}</p>}
         {wide && !terminal && <p className="dte-muted dte-small">{t('wideEtaHint')}</p>}
         {retained && <p className="dte-muted dte-small">{t('retainedForecastHint', { time: new Date(retained.updatedAt).toLocaleString(localeSnapshot.active) })}</p>}
         {referencePrice && <p className="dte-muted dte-small">{t('referencePriceHint')}</p>}
@@ -187,7 +189,7 @@ export function applyClient(ctx: Context): void {
           <span className="dte-spacer" />
           {view === 'details' && <button type="button" className="dte-link" disabled={state.pending} onClick={refresh}>{t('refresh')}</button>}
         </div>
-        {view === 'details' && (snapshot ? <EstimateDetails snapshot={snapshot} receivedAt={state.receivedAt} now={now} locale={localeSnapshot.active} t={t} /> : <p className="dte-muted">{t(tail ? 'noSnapshot' : 'noTask')}</p>)}
+        {view === 'details' && (snapshot ? <EstimateDetails snapshot={snapshot} timeReference={retained ?? undefined} receivedAt={state.receivedAt} now={now} locale={localeSnapshot.active} t={t} /> : <p className="dte-muted">{t(tail ? 'noSnapshot' : 'noTask')}</p>)}
         {view === 'settings' && <Management remote={remote} store={store} t={t} locale={localeSnapshot.active} />}
       </div></div>, document.body)}
     </div>;

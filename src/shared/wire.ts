@@ -15,6 +15,8 @@ export interface EstimateSnapshot {
   algorithmVersion: string;
   state: TaskState;
   taskType: string;
+  workloadScale?: 'task' | 'project' | 'program';
+  forecastScope?: 'current_turn' | 'whole_goal';
   updatedAt: number;
   startedAt: number;
   endedAt: number | null;
@@ -133,5 +135,5 @@ export interface EstimatorRemote {
   manage(action: ManagementAction, payload: string, signal?: AbortSignal): Promise<RemoteResult<ManagementResult>>;
 }
 export type RemoteResult<T> = { ok: true; value: T } | { ok: false; error: { message: string; code: string } };
-export const ALGORITHM_VERSION = 'p0-0.3.0';
+export const ALGORITHM_VERSION = 'p0-0.3.0-goal1';
 export const PACKAGE_NAME = 'dsh-task-time-cost';

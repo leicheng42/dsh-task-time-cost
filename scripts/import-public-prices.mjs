@@ -25,7 +25,11 @@ for (const [provider, info] of Object.entries(api)) {
     const rules = tiers.map((t, index) => ({ id: `context-${index}`, when: { promptTokensAbove: t.tier.size }, mode: 'whole-request', prices: prices(t) }));
     // Older API entries provide the same legacy condition without tiers.
     if (!tiers.length && value.cost?.context_over_200k) rules.push({ id: 'context-200k', when: { promptTokensAbove: 200_000 }, mode: 'whole-request', prices: prices(value.cost.context_over_200k) });
-    rows.push({ provider, model, prices: rates, ...(rules.length ? { rules } : {}) });
+    // The publisher's display name lets a gateway alias such as
+    // `deepseek-v4.1-flash` find the lab's own row (`deepseek-flash`, named
+    // "DeepSeek V4.1 Flash 1017") without stripping versions from ids.
+    const name = typeof value.name === 'string' && value.name.trim() ? value.name.trim() : undefined;
+    rows.push({ provider, model, ...(name ? { name } : {}), prices: rates, ...(rules.length ? { rules } : {}) });
   }
 }
 rows.sort((a, b) => `${a.provider}/${a.model}`.localeCompare(`${b.provider}/${b.model}`, 'en'));

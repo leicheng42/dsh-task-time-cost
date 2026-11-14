@@ -12,6 +12,7 @@ export const aiPlanSchema = z.object({
   remainingOutputTokens: span(2_000_000),
   remainingToolSeconds: span(86_400),
   stage: z.enum(['planning', 'implementation', 'verification', 'finishing']),
+  scope: z.enum(['current_turn', 'whole_goal']).optional(),
 }).strict();
 export type AiPlanInput = z.infer<typeof aiPlanSchema>;
 export type AiPlan = AiPlanInput & { afterCalls: number; submittedAt: number };

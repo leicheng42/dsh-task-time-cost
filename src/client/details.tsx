@@ -37,7 +37,7 @@ export function reasonText(reason: string, t: Translate): string {
   return t('reasonCode', { value: reason });
 }
 
-export function EstimateDetails({ snapshot, receivedAt, now, locale, t }: { snapshot: EstimateSnapshot; receivedAt: number; now: number; locale: string; t: Translate }) {
+export function EstimateDetails({ snapshot, timeReference, receivedAt, now, locale, t }: { snapshot: EstimateSnapshot; timeReference?: Pick<EstimateSnapshot, 'remainingMs' | 'estimatedTotalMs'>; receivedAt: number; now: number; locale: string; t: Translate }) {
   const timing = localTiming(snapshot, receivedAt, now);
   const performance = snapshot.performance;
   const text = (value: string | null | undefined) => value || t('unknown');
@@ -48,11 +48,11 @@ export function EstimateDetails({ snapshot, receivedAt, now, locale, t }: { snap
   const partial = snapshot.forecastCostStatus === 'partial' || snapshot.forecastCostStatus === 'unavailable' || snapshot.observedCostStatus === 'partial' || snapshot.observedCostStatus === 'unpriced';
 
   return <section aria-label={t('details')}>
-    <p className="dte-muted dte-small">{t('scope')}</p>
+    <p className="dte-muted dte-small">{t(snapshot.forecastScope === 'whole_goal' ? 'scopeGoal' : 'scope')}</p>
     <Facts rows={[
       [t('activeTime'), formatDuration(timing.activeMs, t)], [t('pausedTime'), formatDuration(timing.pausedMs, t)],
-      [t('wallTime'), formatDuration(timing.wallMs, t)], [t('remaining'), formatEta(timing.remaining, t)],
-      [t('estimatedTotal'), formatEta(snapshot.estimatedTotalMs, t)],
+      [t('wallTime'), formatDuration(timing.wallMs, t)], [t('remaining'), formatEta(timing.remaining ?? timeReference?.remainingMs, t)],
+      [t('estimatedTotal'), formatEta(snapshot.estimatedTotalMs ?? timeReference?.estimatedTotalMs, t)],
       [t('tokenForecast'), formatTokenRange(snapshot.estimatedTotalTokens, locale, t)],
       [t('tokenRemainingOutput'), formatTokenRange(snapshot.estimatedRemainingOutputTokens, locale, t)],
       [t(referencePrice ? 'referenceCost' : 'knownCost'), costSummary(snapshot, locale, t)],

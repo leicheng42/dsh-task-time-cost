@@ -52,3 +52,20 @@ test('unknown models, suffix variants and an unconfirmed billing identity are no
   }
   assert.equal(resolveWithPublicPrices({ ...identity, billingIdentityConfirmed: false }, [], [], at).entry, null);
 });
+
+test('a gateway rename finds the lab row through the publisher display name', () => {
+  const renamed = publicPriceFor({ providerId: 'magpie', requestedModelId: 'auto/deepseek-v4.1-flash' });
+  assert.equal(renamed?.id, 'models.dev:deepseek/deepseek-flash');
+  assert.equal(renamed?.providerId, '*');
+  assert.equal(renamed?.modelId, 'auto/deepseek-v4.1-flash');
+  assert.deepEqual(renamed?.prices, { inputTokens: '0.15', outputTokens: '0.6', cacheReadTokens: '0.003' });
+  assert.deepEqual(publicPriceFor({ providerId: 'magpie', requestedModelId: 'auto/deepseek-v4.1-flash-1017' })?.prices, renamed?.prices);
+  // Peeling still leaves the versioned sibling on its own row.
+  assert.equal(publicPriceFor({ providerId: 'magpie', requestedModelId: 'auto/deepseek-v4-flash' })?.id, 'models.dev:deepseek/deepseek-v4-flash');
+});
+
+test('the display-name bridge stays narrow: no single-token aliases, no free or unknown tiers', () => {
+  assert.equal(publicPriceFor({ providerId: 'magpie', requestedModelId: 'auto/dfmodel' }), null);
+  assert.equal(publicPriceFor({ providerId: 'magpie', requestedModelId: 'auto/deepseek-v4.1-flash-lite' }), null);
+  assert.equal(publicPriceFor({ providerId: 'magpie', requestedModelId: 'gpt-6.1' }), null);
+});

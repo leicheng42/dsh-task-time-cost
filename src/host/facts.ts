@@ -1,5 +1,8 @@
 import type { SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session';
 import type {} from '@deepseek-ai/dsh-agent';
+import type {} from '@deepseek-ai/dsh-goal';
+import { inferWorkloadScale, mergeWorkloadScale } from '../shared/scope.ts';
+import type { WorkloadScale } from '../shared/scope.ts';
 import type { AssistantStreamRecord, StreamChunk, TokenUsage } from '@deepseek-ai/dsh-llm';
 import type { TaskState } from '../shared/wire.ts';
 import type { TaskKind, RequestMode } from '../shared/types.ts';
@@ -26,12 +29,15 @@ export interface TaskFact {
   explicitOutputWords: number | null; userMessages: number; scopeChanged: boolean;
   step: number; stepStartedAt: number; route: RouteFact | null;
   calls: CallFact[]; tools: Record<string, ToolFact>;
+  workloadScale?: WorkloadScale;
+  goalId?: string;
   aiPlan?: AiPlan;
 }
-type PromptFeatures = Pick<TaskFact, 'taskType' | 'promptChars' | 'attachmentCount' | 'explicitOutputWords' | 'userMessages'>;
+type PromptFeatures = Pick<TaskFact, 'taskType' | 'promptChars' | 'attachmentCount' | 'explicitOutputWords' | 'userMessages' | 'workloadScale'>;
 export interface FactsState {
   sessionId: string; inheritedEventCount: number; lastSeq: number; currentTurn: number | null;
   pendingPrompt: PromptFeatures | null;
+  goal?: { id: string; phase: string; features: PromptFeatures } | null;
   route: RouteFact | null; tasks: Record<string, TaskFact>;
   view: { revision: number; currentTurn: number | null };
   error: string | null;
@@ -91,7 +97,8 @@ export function turnEndState(kind: string): TaskState {
 }
 
 function mergePrompt(previous: PromptFeatures | null, incoming: PromptFeatures): PromptFeatures {
-  return { taskType: incoming.taskType === 'unknown' ? previous?.taskType ?? 'unknown' : incoming.taskType,
+  const workloadScale = mergeWorkloadScale(previous?.workloadScale, incoming.workloadScale);
+  return { workloadScale, taskType: workloadScale !== 'task' ? 'code' : incoming.taskType === 'unknown' ? previous?.taskType ?? 'unknown' : incoming.taskType,
     promptChars: (previous?.promptChars ?? 0) + incoming.promptChars,
     attachmentCount: (previous?.attachmentCount ?? 0) + incoming.attachmentCount,
     explicitOutputWords: incoming.explicitOutputWords ?? previous?.explicitOutputWords ?? null,
@@ -102,25 +109,46 @@ function mergePrompt(previous: PromptFeatures | null, incoming: PromptFeatures):
 export function foldFacts(state: FactsState, event: SessionEvent, classify: Classifier): FactsState {
   if (event.seq <= state.lastSeq || event.seq < state.inheritedEventCount) return state;
   const kind = event.type;
-  const interested = ['turn/start', 'turn/end', 'step/start', 'user/message', 'assistant/message', 'assistant/attempt', 'tool/call', 'tool/result', 'request/header', 'model/selection'];
+  const interested = ['goal/change', 'turn/start', 'turn/end', 'step/start', 'user/message', 'assistant/message', 'assistant/attempt', 'tool/call', 'tool/result', 'request/header', 'model/selection'];
   if (!interested.includes(kind)) return state;
   let next: FactsState = { ...state, tasks: { ...state.tasks }, lastSeq: event.seq };
   if (event.type === 'request/header' || event.type === 'model/selection') {
     const config = event.type === 'request/header' ? event.data.header.config : event.data;
     next.route = { providerId: config.provider, modelId: config.model, reasoningEffort: config.reasoningEffort ?? 'unknown' };
   }
+  if (event.type === 'goal/change') {
+    if (event.data.operation === 'clear') { next.goal = null; return next; }
+    const objective = event.data.goal.objective;
+    const taskType = classify(objective), scale = inferWorkloadScale(objective, taskType);
+    const count = /(?:\b|约|写|生成|输出)(\d{1,6})\s*(?:字|words?\b)/i.exec(objective);
+    const features: PromptFeatures = { taskType: scale === 'task' ? taskType : 'code', workloadScale: scale,
+      promptChars: objective.length, attachmentCount: 0, explicitOutputWords: count ? Number(count[1]) : null, userMessages: 0 };
+    next.goal = { id: event.data.goal.id, phase: event.data.goal.phase, features };
+    const current = next.currentTurn === null ? undefined : next.tasks[String(next.currentTurn)];
+    if (current && current.endedAt === null && next.goal.phase === 'active') {
+      const task = { ...current, ...mergePrompt(current, features), goalId: next.goal.id };
+      if (event.data.operation === 'create' || event.data.operation === 'edit') { delete task.aiPlan; task.scopeChanged = true; }
+      next.tasks[String(task.turn)] = task;
+    }
+    return next;
+  }
   let incoming: PromptFeatures | null = null;
   if (event.type === 'user/message' && event.data.source.kind === 'user') {
     const prompt = event.data.content.filter(block => block.type === 'text').map(block => block.text).join('\n');
     const count = /(?:\b|约|写|生成|输出)(\d{1,6})\s*(?:字|words?\b)/i.exec(prompt);
-    incoming = { taskType: classify(prompt), promptChars: prompt.length,
+    const taskType = classify(prompt);
+    incoming = { taskType, workloadScale: inferWorkloadScale(prompt, taskType), promptChars: prompt.length,
       attachmentCount: event.data.content.filter(block => block.type === 'file' || block.type === 'image').length,
       explicitOutputWords: count ? Number(count[1]) : null, userMessages: 1 };
   }
+  if (event.type === 'user/message' && event.data.source.kind === 'goal' && next.goal?.phase === 'active' && event.data.source.goalId === next.goal.id) {
+    incoming = { ...next.goal.features, userMessages: 0 };
+  }
   if (event.type === 'turn/start') {
+    if (next.goal?.phase === 'active') next.pendingPrompt = mergePrompt(next.goal.features, next.pendingPrompt ?? { taskType: 'unknown', promptChars: 0, attachmentCount: 0, explicitOutputWords: null, userMessages: 0 });
     const turn = event.data.turn;
     next.currentTurn = turn;
-    next.tasks[String(turn)] = { turn, startSeq: event.seq, startedAt: event.time, endedAt: null, lastAt: event.time, state: 'running', taskType: 'unknown', promptChars: 0, attachmentCount: 0, explicitOutputWords: null, userMessages: 0, scopeChanged: false, step: 0, stepStartedAt: event.time, route: next.route, calls: [], tools: {}, ...(next.pendingPrompt ?? {}) };
+    next.tasks[String(turn)] = { turn, startSeq: event.seq, startedAt: event.time, endedAt: null, lastAt: event.time, state: 'running', taskType: 'unknown', promptChars: 0, attachmentCount: 0, explicitOutputWords: null, userMessages: 0, scopeChanged: false, step: 0, stepStartedAt: event.time, route: next.route, calls: [], tools: {}, ...(next.goal?.phase === 'active' ? { goalId: next.goal.id } : {}), ...(next.pendingPrompt ?? {}) };
     next.pendingPrompt = null;
     // Bound the per-session checkpoint. Older completed snapshots remain in plugin storage.
     const old = Object.keys(next.tasks).sort((a, b) => Number(a) - Number(b));
@@ -138,7 +166,7 @@ export function foldFacts(state: FactsState, event: SessionEvent, classify: Clas
       } else if (event.type === 'request/header' || event.type === 'model/selection') task.route = next.route;
       else if (incoming && task.endedAt === null) {
         Object.assign(task, mergePrompt(task, incoming));
-        task.scopeChanged ||= task.userMessages > 1;
+        task.scopeChanged ||= task.userMessages > 1 || incoming.userMessages > 0 && !!task.goalId;
         // New human scope invalidates an earlier AI forecast until it is revised.
         delete task.aiPlan;
       } else if (event.type === 'assistant/message' || event.type === 'assistant/attempt') {

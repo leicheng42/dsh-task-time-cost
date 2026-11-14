@@ -12,7 +12,10 @@
 
 ## What it does
 
-- **Estimate the wait:** sufficient comparable local tasks narrow workload ranges using their observed distribution; broad references read “Refining estimate,” with the full range in the popup.
+These improvements describe the current 0.3.0 candidate source; the downloadable version remains the preview identified above.
+
+- **Start with the project scope:** read ordinary requests and real Goal objectives; complete multi-app systems receive a project-scale initial reference, then a full-objective model plan can revise it.
+- **Estimate the wait:** show a central time and the complete reference interval; sufficient comparable local tasks update the workload budget using their observed distribution.
 - **See forecast Tokens:** observed Tokens, estimated remaining output and available total forecasts are separate. Less-used details and settings live under the header’s More (⋯) button.
 - **Explain cost coverage:** known-model public list-price references with explicit overrides, without treating missing prices as free.
 - **Learn locally:** route latency/speed, sources, samples and dates, plus JSON/CSV baselines and local statistics export.

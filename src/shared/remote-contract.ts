@@ -14,6 +14,7 @@ const count = integer.nullable();
 export const snapshotSchema: z.ZodType<EstimateSnapshot> = z.object({
   taskKey: z.string(), sessionId: z.string(), turn: integer, revision: integer,
   algorithmVersion: z.string(), state: taskState, taskType: z.string(),
+  workloadScale: z.enum(['task', 'project', 'program']).optional(), forecastScope: z.enum(['current_turn', 'whole_goal']).optional(),
   updatedAt: nonnegative, startedAt: nonnegative, endedAt: nonnegative.nullable(),
   elapsedWallMs: nonnegative, elapsedActiveMs: nonnegative, elapsedPausedMs: nonnegative,
   remainingMs: span.nullable(), remainingTypicalMs: nonnegative.nullable().optional(), estimatedTotalMs: span.nullable(),

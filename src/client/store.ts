@@ -140,7 +140,7 @@ export class SnapshotStore {
           .sort((a, b) => b.updatedAt - a.updatedAt)[0] ?? null : entry.state.lastForecast;
         const lastForecast = snapshot && isTerminal(snapshot.state) ? null
           : snapshot?.remainingMs && snapshot.remainingMs.high > 0 ? { taskKey: snapshot.taskKey,
-            remainingMs: { ...snapshot.remainingMs }, estimatedTotalMs: snapshot.estimatedTotalMs ? { ...snapshot.estimatedTotalMs } : null, updatedAt: snapshot.updatedAt }
+            remainingMs: { ...snapshot.remainingMs }, ...(snapshot.remainingTypicalMs !== undefined ? { remainingTypicalMs: snapshot.remainingTypicalMs } : {}), estimatedTotalMs: snapshot.estimatedTotalMs ? { ...snapshot.estimatedTotalMs } : null, updatedAt: snapshot.updatedAt }
           : previous;
         entry.state = {
           view, pending: false, receivedAt: Date.now(), lastForecast,

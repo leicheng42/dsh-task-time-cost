@@ -495,6 +495,23 @@ test('host/workload: the first successful observation updates the configured tem
   assert.equal(learned.visibleOutputTokens, 8_100); assert.equal(learned.toolMs, 16_000);
 });
 
+test('review/initial-goal: a large first goal cannot be replaced by a short turn plan', async t => {
+  const env = await environment(t, liveConfig()), current = task(env.now());
+  current.taskType = 'code'; current.workloadScale = 'program'; current.goalId = 'goal-test';
+  const initial = env.engine.estimate('initial-goal', current, 1, true);
+  assert.ok(initial.remainingTypicalMs! >= 3_600_000);
+  assert.equal(initial.forecastScope, 'whole_goal');
+  current.aiPlan = { remainingCalls: { low: 1, high: 2 }, remainingOutputTokens: { low: 200, high: 800 },
+    remainingToolSeconds: { low: 0, high: 5 }, stage: 'planning', afterCalls: 0, submittedAt: env.now(), scope: 'current_turn' };
+  assert.ok(env.engine.estimate('initial-goal', current, 2, true).remainingTypicalMs! >= 3_600_000);
+  current.aiPlan.scope = 'whole_goal';
+  assert.ok(env.engine.estimate('initial-goal', current, 3, true).remainingTypicalMs! >= 3_600_000, 'Claiming whole_goal cannot turn a new complete system into two requests');
+  current.aiPlan = { ...current.aiPlan, remainingCalls: { low: 100, high: 160 }, remainingOutputTokens: { low: 20_000, high: 40_000 }, remainingToolSeconds: { low: 1_800, high: 3_600 } };
+  const revised = env.engine.estimate('initial-goal', current, 4, true);
+  assert.ok(revised.reasons.includes('ai-workload-plan-reference'));
+  assert.ok(revised.remainingTypicalMs! > 1_800_000);
+});
+
 test('review/replan: a human follow-up cannot replace a large AI plan with a short template', async t => {
   const env = await environment(t, liveConfig()), current = task(env.now());
   current.aiPlan = { remainingCalls: { low: 40, high: 50 }, remainingOutputTokens: { low: 8_000, high: 12_000 },

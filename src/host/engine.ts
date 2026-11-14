@@ -208,19 +208,27 @@ export class EstimatorEngine {
       return record.id !== key && record.learned?.eligible && past.state === 'completed' && past.endedAt !== null
         && past.endedAt <= task.startedAt && record.savedAt > this.repository.resetAt
         && task.startedAt - past.endedAt <= this.config.historyRetentionDays * 86_400_000 && past.taskType === task.taskType
+        && (past.workloadScale ?? 'task') === (task.workloadScale ?? 'task')
         && p?.providerId === route.providerId && p.modelId === route.modelId && p.endpointFingerprint === route.endpointFingerprint
         && p.reasoningEffort === route.reasoningEffort && p.serviceTier === route.serviceTier;
     }).sort((a, b) => a.current.endedAt! - b.current.endedAt!).slice(-this.config.maxSamplesPerBucket);
-    const signature = JSON.stringify([task.taskType, task.explicitOutputWords, task.attachmentCount, task.route, requestMode, input, task.aiPlan, comparable.map(record => record.id)]);
+    const signature = JSON.stringify([task.taskType, task.workloadScale, task.goalId, task.explicitOutputWords, task.attachmentCount, task.route, requestMode, input, task.aiPlan, comparable.map(record => record.id)]);
     const previous = this.plans.get(key);
     if (previous?.signature === signature) return structuredClone(previous.plan);
     const templates = this.templates(route);
-    let plan = estimateWorkload({ prompt: syntheticPrompts[task.taskType], currentInputTokens: input, fileCount: task.attachmentCount,
+    let plan = estimateWorkload({ prompt: syntheticPrompts[task.taskType], workloadScale: task.workloadScale, currentInputTokens: input, fileCount: task.attachmentCount,
       ...(task.explicitOutputWords ? { explicitOutputTokens: { low: task.explicitOutputWords, high: task.explicitOutputWords * 2 } } : {}) }, route,
     { config: this.engineConfig(), templates, history: [...this.workloadHistory.values()],
       observations: comparable.map(record => ({ requestCount: record.learned!.calls, visibleOutputTokens: record.learned!.visibleOutputTokens, toolMs: record.learned!.toolWorkMs })),
       rules: [{ id: 'durable-classification', kind: task.taskType, patterns: ['.*'] }] });
-    if (task.aiPlan) plan = applyAiPlan(plan, task.aiPlan, route, this.currentInput.get(key) ?? input, this.engineConfig());
+    if (task.aiPlan) {
+      const wholeGoal = !task.goalId || task.aiPlan.scope === 'whole_goal';
+      const tooSmallInitially = task.workloadScale !== undefined && task.workloadScale !== 'task' && task.calls.length < 3
+        && task.aiPlan.remainingCalls.high < (task.workloadScale === 'program' ? 80 : 20)
+        && task.aiPlan.remainingToolSeconds.high < (task.workloadScale === 'program' ? 1800 : 600);
+      if (wholeGoal && !tooSmallInitially) plan = applyAiPlan(plan, task.aiPlan, route, this.currentInput.get(key) ?? input, this.engineConfig());
+      else plan.reasons.push(tooSmallInitially ? 'ai-plan-too-small-for-initial-scope' : 'ai-turn-plan-not-goal-total');
+    }
     this.plans.set(key, { signature, plan });
     return structuredClone(plan);
   }
@@ -259,7 +267,7 @@ export class EstimatorEngine {
     const paused = Math.min(Math.max(0, now - task.startedAt), priorPause + this.runtime.pausedMs(sessionId, task.turn, task.startedAt, now));
     const elapsedWall = Math.max(0, now - task.startedAt), elapsedActive = Math.max(0, elapsedWall - paused);
     const plan = this.plan(sessionId, task);
-    const reasons = [...plan.reasons, 'scope:current-turn-only', 'timing-start:confirmed-turn-start', 'queue-duration-unavailable'];
+    const reasons = [...plan.reasons, task.goalId ? 'forecast-scope:whole-goal' : 'scope:current-turn-only', 'timing-start:confirmed-turn-start', 'queue-duration-unavailable'];
     if (!this.config.routeOverrides[task.route?.providerId ?? '']?.endpointFingerprint) reasons.push('endpoint-unresolved-mixed-route');
     if (task.scopeChanged) reasons.push('task-scope-changed-workload-not-learned');
     if (calls.some(call => call.fact.timingSource === 'step-boundary')) reasons.push('historical-timing-approximate-not-provider-sample');
@@ -329,7 +337,7 @@ export class EstimatorEngine {
     reasons.push(...prediction.reasons);
     let remaining = task.endedAt !== null ? { low: 0, high: 0 } : prediction.remainingMs;
     let typical = task.endedAt !== null ? 0 : prediction.typicalMs;
-    const needsReplan = task.scopeChanged && !task.aiPlan;
+    const needsReplan = task.scopeChanged && !task.aiPlan && (!task.workloadScale || task.workloadScale === 'task');
     // Once the planned request count has been consumed the plan is no longer a
     // description of the work, and that stays true for the rest of the turn. The
     // earlier test also required "no active attempt", so a long turn collapsed
@@ -343,6 +351,7 @@ export class EstimatorEngine {
         const past = record.current, p = past.performance;
         return record.id !== key && past.state === 'completed' && past.endedAt !== null && past.endedAt <= task.startedAt
           && record.savedAt > this.repository.resetAt && past.taskType === task.taskType
+          && (past.workloadScale ?? 'task') === (task.workloadScale ?? 'task') && past.forecastScope !== 'whole_goal'
           && !past.reasons.includes('task-scope-changed-workload-not-learned')
           && p?.providerId === route.providerId && p.modelId === route.modelId
           && p.endpointFingerprint === route.endpointFingerprint && p.reasoningEffort === route.reasoningEffort && p.serviceTier === route.serviceTier;
@@ -418,7 +427,7 @@ export class EstimatorEngine {
     const snapshot: EstimateSnapshot = snapshotSchema.parse({
       taskKey: key, sessionId, turn: task.turn, revision: Math.max(1, (cached?.snapshot.revision ?? saved?.current.revision ?? 0) + 1), algorithmVersion: ALGORITHM_VERSION,
       state: task.endedAt === null && runtime.pauseOwners.size ? 'waiting_user' : task.state,
-      taskType: task.taskType, updatedAt: now, startedAt: task.startedAt, endedAt: task.endedAt,
+      taskType: task.taskType, workloadScale: task.workloadScale ?? 'task', forecastScope: task.goalId ? 'whole_goal' : 'current_turn', updatedAt: now, startedAt: task.startedAt, endedAt: task.endedAt,
       elapsedWallMs: elapsedWall, elapsedActiveMs: elapsedActive, elapsedPausedMs: paused,
       remainingMs: errors ? null : remaining,
       remainingTypicalMs: errors || !remaining ? null : typical ?? (remaining.low + remaining.high) / 2,
@@ -494,7 +503,7 @@ export class EstimatorEngine {
     const calls = task.calls.map(fact => this.repository.calls.get(`${sessionId}:${fact.seq}`) ?? this.ephemeralCall(sessionId, fact));
     const outputs = calls.map(call => call.usage.visibleOutputTokens), output = knownSum(outputs);
     const learned = task.endedAt === null ? null : { calls: calls.length, visibleOutputTokens: output ?? 0, toolWorkMs: snapshot.tools.workMs,
-      eligible: task.state === 'completed' && !task.scopeChanged && calls.length > 0 && output !== null && calls.every(call => call.fact.outcome === 'completed') && Object.values(task.tools).every(tool => this.runtime.tools.has(`${sessionId}:${tool.id}`)) };
+      eligible: task.state === 'completed' && !task.goalId && !task.scopeChanged && calls.length > 0 && output !== null && calls.every(call => call.fact.outcome === 'completed') && Object.values(task.tools).every(tool => this.runtime.tools.has(`${sessionId}:${tool.id}`)) };
     const revisions = [...(saved?.revisions ?? []), snapshot].slice(-128);
     const record: TaskRecord = { id: snapshot.taskKey, savedAt: snapshot.updatedAt, sourceRevision: revision, current: snapshot, revisions,
       lastForecast: retainedTimeForecast(snapshot, saved), learned };
@@ -504,6 +513,7 @@ export class EstimatorEngine {
   }
   private trainWorkload(record: TaskRecord): void {
     const learned = record.learned;
+    if (record.current.workloadScale && record.current.workloadScale !== 'task') return;
     if (!learned?.eligible || (this.repository.resetAt > 0 && record.savedAt <= this.repository.resetAt)) return;
     const kind = record.current.taskType as TaskKind;
     const performance = record.current.performance;

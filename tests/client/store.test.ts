@@ -124,7 +124,7 @@ test('remote refusals and EstimatorView errors remain visible in shared state', 
 test('unknown updates keep a frozen last time reference without inventing a current token or cost forecast', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'], now: 1_000 });
   let calls = 0;
-  const store = new SnapshotStore(remote(async () => ++calls === 1 ? view() : view({ remainingMs: null, estimatedTotalMs: null,
+  const store = new SnapshotStore(remote(async () => ++calls === 1 ? view({ remainingTypicalMs: 12_000 }) : view({ remainingMs: null, estimatedTotalMs: null,
     estimatedTotalCost: null, estimatedTotalTokens: null, updatedAt: 2_000 })));
   t.after(() => store.dispose());
   await store.refresh('s', 1);
@@ -134,6 +134,7 @@ test('unknown updates keep a frozen last time reference without inventing a curr
   const state = store.getSnapshot('s', 1);
   assert.deepEqual(state.lastForecast?.remainingMs, { low: 10_000, high: 20_000 }, 'Old ETA is a frozen reference, not a countdown');
   assert.equal(state.lastForecast?.updatedAt, 1_000);
+  assert.equal(state.lastForecast?.remainingTypicalMs, 12_000, 'A retained central reference cannot revert to the widened interval midpoint');
   assert.equal(state.view?.snapshot?.remainingMs, null);
   assert.equal(state.view?.snapshot?.estimatedTotalTokens, null);
   assert.equal(state.view?.snapshot?.estimatedTotalCost, null);

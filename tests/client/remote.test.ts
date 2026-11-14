@@ -55,9 +55,11 @@ test('disposing a parent request aborts the in-flight remote call', async () => 
 });
 
 test('Remote snapshot codec preserves session totals separately from the current turn', () => {
-  const original = snapshot({ sessionElapsedMs: 91_000, sessionRemainingMs: { low: 12_000, high: 24_000 }, sessionTurns: 3, remainingTypicalMs: 16_000 });
+  const original = snapshot({ sessionElapsedMs: 91_000, sessionRemainingMs: { low: 12_000, high: 24_000 }, sessionTurns: 3, remainingTypicalMs: 16_000, workloadScale: 'program', forecastScope: 'whole_goal' });
   const decoded = snapshotSchema.parse(JSON.parse(JSON.stringify(original)));
   assert.equal(decoded.remainingTypicalMs, 16_000, 'The real wire codec must retain the central reference');
+  assert.equal(decoded.workloadScale, 'program');
+  assert.equal(decoded.forecastScope, 'whole_goal');
   assert.equal(decoded.sessionElapsedMs, 91_000);
   assert.deepEqual(decoded.sessionRemainingMs, { low: 12_000, high: 24_000 });
   assert.equal(decoded.sessionTurns, 3);
