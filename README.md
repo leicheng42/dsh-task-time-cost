@@ -6,7 +6,13 @@
 
 [![Preview](https://img.shields.io/github/v/release/leicheng42/dsh-task-time-cost?include_prereleases&label=preview)](https://github.com/leicheng42/dsh-task-time-cost/releases) [![CI](https://github.com/leicheng42/dsh-task-time-cost/actions/workflows/ci.yml/badge.svg)](https://github.com/leicheng42/dsh-task-time-cost/actions/workflows/ci.yml) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-<img src="docs/public/screenshots/summary-030.png" width="560" height="373" alt="真实插件浮窗：中心时间预估、完整参考范围、预测 Token 与参考费用" />
+<img src="docs/public/screenshots/summary-030.png" width="560" height="348" alt="真实插件浮窗：中心时间预估、完整参考范围、预测 Token 与参考费用" />
+
+<details><summary>深色主题</summary>
+
+<img src="docs/public/screenshots/dark-030.png" width="560" height="374" alt="真实深色主题：完整时间范围与部分已知费用的提示" />
+
+</details>
 
 *真实运行截图：Windows / DSH Desktop 0.2.2-rc.2 / 正在验收的 0.3.0 候选版。当前可下载预览版为 0.2.9-beta.1；图中数值属于拍摄时的任务，费用为公共目录参考。*
 

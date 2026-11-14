@@ -6,7 +6,13 @@
 
 [![Preview](https://img.shields.io/github/v/release/leicheng42/dsh-task-time-cost?include_prereleases&label=preview)](https://github.com/leicheng42/dsh-task-time-cost/releases) [![CI](https://github.com/leicheng42/dsh-task-time-cost/actions/workflows/ci.yml/badge.svg)](https://github.com/leicheng42/dsh-task-time-cost/actions/workflows/ci.yml) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-<img src="docs/public/screenshots/summary-030.png" width="560" height="373" alt="Actual plugin showing a central ETA, the full reference range, forecast Tokens and reference costs" />
+<img src="docs/public/screenshots/summary-030.png" width="560" height="348" alt="Actual plugin showing a central ETA, the full reference range, forecast Tokens and reference costs" />
+
+<details><summary>Dark theme</summary>
+
+<img src="docs/public/screenshots/dark-030.png" width="560" height="374" alt="Actual dark theme with a complete time range and partial known cost notice" />
+
+</details>
 
 *Real runtime capture: Windows / DSH Desktop 0.2.2-rc.2 / the0.3.0 candidate under verification. The downloadable preview is0.2.9-beta.1. Values belong to the task at capture time; prices are public-catalog references.*
 

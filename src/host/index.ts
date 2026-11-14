@@ -23,6 +23,7 @@ import type { EstimateSnapshot, EstimatorView, ManagementAction, ManagementResul
 import { descriptors } from '../shared/remote-contract.ts';
 import { retainedTimeForecast } from '../shared/retained-time.ts';
 import { ObserverMetrics } from './metrics.ts';
+import { observeHumanWaits } from './user-wait.ts';
 import { Config, validatePluginConfig } from './config.ts';
 import type { PluginConfig } from './config.ts';
 import { persistConfig } from './config-entry.ts';
@@ -215,18 +216,14 @@ export async function apply(ctx: Context, rawConfig: unknown): Promise<void> {
       metrics.record('tool-dispatch-extra', entered - started + performance.now() - returned);
     }
   });
-  ctx.on('user-questions/request', async (request, next) => {
-    const agent = request.agent;
-    let resume: (() => void) | undefined;
-    if (agent) safe(agent, () => { const turn = ctx.agents.turnBoundaryOf(agent.session).lastTurn; resume = engine.runtime.pause(agent.id, turn); engine.invalidate(agent.id, turn); checkpoint(agent); });
-    try { return await next(); }
-    finally { if (resume) safe(agent, () => { resume!(); if (agent) { engine.invalidate(agent.id, ctx.agents.turnBoundaryOf(agent.session).lastTurn); checkpoint(agent); } }); }
-  });
-  ctx.on('approval/request', async (request, next) => {
-    let resume: (() => void) | undefined;
-    safe(request.agent, () => { const turn = ctx.agents.turnBoundaryOf(request.agent.session).lastTurn; resume = engine.runtime.pause(request.agent.id, turn); engine.invalidate(request.agent.id, turn); checkpoint(request.agent); });
-    try { return await next(); }
-    finally { if (resume) safe(request.agent, () => { resume!(); engine.invalidate(request.agent.id, ctx.agents.turnBoundaryOf(request.agent.session).lastTurn); checkpoint(request.agent); }); }
+  observeHumanWaits(ctx, agent => {
+    let resume = () => {};
+    safe(agent, () => {
+      const turn = ctx.agents.turnBoundaryOf(agent.session).lastTurn, release = engine.runtime.pause(agent.id, turn);
+      engine.invalidate(agent.id, turn); checkpoint(agent);
+      resume = () => safe(agent, () => { release(); engine.invalidate(agent.id, turn); checkpoint(agent); });
+    });
+    return resume;
   });
   ctx.on('session/flush', async () => {
     const started = performance.now();

@@ -6,7 +6,7 @@
 | Host | Windows DSH Desktop 0.2.2-rc.2 |
 | Runtime | Node 24+, Cordis 4.1.0, Typert 0.2.2-rc.2, aligned Zod 4.6.6 |
 | Client | DSH module factory, one external Host React, public Slot contracts and theme tokens |
-| Algorithm | p0-0.3.0-goal2; whole-Goal time references, scale-aware initial workload, current-turn usage and optional session aggregates |
+| Algorithm | p0-0.3.0-goal3; whole-Goal time references, scale-aware initial workload, current-turn usage and optional session aggregates |
 | Other environments | Other DSH releases, macOS/Linux, ACP and mobile unverified |
 
 ## Lifecycle / 生命周期

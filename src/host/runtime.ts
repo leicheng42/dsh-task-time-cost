@@ -48,12 +48,16 @@ export class RuntimeObservations {
       }
     };
   }
-  pausedMs(sessionId: string, turn: number, from: number, to: number): number {
+  pausedMs(sessionId: string, turn: number, from: number, to: number, durable: readonly PauseInterval[] = []): number {
     const runtime = this.tasks.get(`${sessionId}:${turn}`);
-    if (!runtime) return 0;
-    let ms = 0;
-    for (const interval of runtime.paused) ms += Math.max(0, Math.min(to, interval.end) - Math.max(from, interval.start));
-    if (runtime.pauseStart !== null) ms += Math.max(0, to - Math.max(from, runtime.pauseStart));
+    const intervals = [...(runtime?.paused ?? []), ...durable];
+    if (runtime?.pauseStart !== null && runtime?.pauseStart !== undefined) intervals.push({ start: runtime.pauseStart, end: to });
+    let ms = 0, coveredEnd = from;
+    for (const interval of intervals.sort((a, b) => a.start - b.start)) {
+      const start = Math.max(from, interval.start, coveredEnd), end = Math.min(to, interval.end);
+      if (end > start) ms += end - start;
+      coveredEnd = Math.max(coveredEnd, end);
+    }
     return Math.min(Math.max(0, to - from), ms);
   }
   startAttempt(sessionId: string, frame: Extract<AssistantStreamFrame, { type: 'start' }>, route: RouteFact): void {

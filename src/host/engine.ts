@@ -1,3 +1,4 @@
+import { isBlockingQuestionTool } from './user-wait.ts';
 import type { Session } from '@deepseek-ai/dsh-session';
 import type { AssistantStreamFrame } from '@deepseek-ai/dsh-agent';
 import { normalizeUsage, sumKnown as knownSum, subtotalKnown as knownSubtotal } from '../shared/usage.ts';
@@ -264,7 +265,11 @@ export class EstimatorEngine {
     const activeTools = tools.filter(tool => tool.endedAt === null);
     const completedTools = tools.filter(tool => tool.endedAt !== null);
     const priorPause = saved && saved.savedAt < runtime.anchorWall ? saved.current.elapsedPausedMs : 0;
-    const paused = Math.min(Math.max(0, now - task.startedAt), priorPause + this.runtime.pausedMs(sessionId, task.turn, task.startedAt, now));
+    const questionWaits = tools.filter(tool => isBlockingQuestionTool(tool.name)).map(tool => ({ start: tool.startedAt, end: tool.endedAt ?? now }));
+    const pauseAnchor = Math.min(now, Math.max(task.startedAt, runtime.anchorWall));
+    const historicalQuestions = this.runtime.pausedMs(sessionId, task.turn, task.startedAt, pauseAnchor, questionWaits);
+    const livePauses = this.runtime.pausedMs(sessionId, task.turn, pauseAnchor, now, questionWaits);
+    const paused = Math.min(Math.max(0, now - task.startedAt), Math.max(priorPause, historicalQuestions) + livePauses);
     const elapsedWall = Math.max(0, now - task.startedAt), elapsedActive = Math.max(0, elapsedWall - paused);
     const plan = this.plan(sessionId, task);
     const reasons = [...plan.reasons, task.goalId ? 'forecast-scope:whole-goal' : 'scope:current-turn-only', 'timing-start:confirmed-turn-start', 'queue-duration-unavailable'];
@@ -307,7 +312,8 @@ export class EstimatorEngine {
       if (attempt.textChars && reportedVisible === null) reasons.push('live-visible-tokens-character-approximation');
     }
     let toolWorkMs = 0;
-    for (const tool of completedTools) toolWorkMs += this.runtime.tools.get(`${sessionId}:${tool.id}`)?.workMs ?? Math.max(0, tool.endedAt! - tool.startedAt);
+    for (const tool of completedTools) if (!isBlockingQuestionTool(tool.name)) toolWorkMs += this.runtime.tools.get(`${sessionId}:${tool.id}`)?.workMs
+      ?? Math.max(0, tool.endedAt! - tool.startedAt - this.runtime.pausedMs(sessionId, task.turn, tool.startedAt, tool.endedAt!, questionWaits));
     if (activeTools.length) {
       const activeToolElapsed = Math.max(...activeTools.map(tool => Math.max(0, now - tool.startedAt - this.runtime.pausedMs(sessionId, task.turn, tool.startedAt, now))));
       for (const scenario of [plan.low, plan.high]) {
@@ -426,7 +432,7 @@ export class EstimatorEngine {
     const initial = saved?.current.initial ?? (task.endedAt === null && task.promptChars > 0 && this.startedHere.has(key) ? { estimatedTotalMs: remaining ? { low: elapsedActive + remaining.low, high: elapsedActive + remaining.high } : null, estimatedTotalCost: totalCost } : null);
     const snapshot: EstimateSnapshot = snapshotSchema.parse({
       taskKey: key, sessionId, turn: task.turn, revision: Math.max(1, (cached?.snapshot.revision ?? saved?.current.revision ?? 0) + 1), algorithmVersion: ALGORITHM_VERSION,
-      state: task.endedAt === null && runtime.pauseOwners.size ? 'waiting_user' : task.state,
+      state: task.endedAt === null && (runtime.pauseOwners.size || activeTools.some(tool => isBlockingQuestionTool(tool.name))) ? 'waiting_user' : task.state,
       taskType: task.taskType, workloadScale: task.workloadScale ?? 'task', forecastScope: task.goalId ? 'whole_goal' : 'current_turn', updatedAt: now, startedAt: task.startedAt, endedAt: task.endedAt,
       elapsedWallMs: elapsedWall, elapsedActiveMs: elapsedActive, elapsedPausedMs: paused,
       remainingMs: errors ? null : remaining,

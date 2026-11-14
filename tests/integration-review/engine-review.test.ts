@@ -495,6 +495,21 @@ test('host/workload: the first successful observation updates the configured tem
   assert.equal(learned.visibleOutputTokens, 8_100); assert.equal(learned.toolMs, 16_000);
 });
 
+test('review/human-wait: durable question waits survive a remount and do not become tool work', async t => {
+  const env = await environment(t, liveConfig()), current = task(env.now() - 20_000);
+  current.tools = { q: { id: 'q', name: 'functions.ask_user_question', startedAt: env.now() - 15_000, endedAt: env.now() - 5_000, failed: false } };
+  const first = env.engine.persist('durable-question', current, 1);
+  assert.equal(first.elapsedWallMs, 20_000);
+  assert.equal(first.elapsedPausedMs, 10_000);
+  assert.equal(first.elapsedActiveMs, 10_000);
+  assert.equal(first.tools.workMs, 0);
+  await env.repository.flush();
+  env.advance(1_000); env.runtime.clear();
+  const afterRemount = env.engine.estimate('durable-question', current, 2, true);
+  assert.equal(afterRemount.elapsedPausedMs, 10_000, 'Persisted aggregate and durable interval must not be counted twice');
+  assert.equal(afterRemount.elapsedActiveMs, 11_000);
+});
+
 test('review/initial-goal: a large first goal cannot be replaced by a short turn plan', async t => {
   const env = await environment(t, liveConfig()), current = task(env.now());
   current.taskType = 'code'; current.workloadScale = 'program'; current.goalId = 'goal-test';
