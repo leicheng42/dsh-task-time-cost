@@ -19,6 +19,14 @@ test('nominal AI time uses route centers instead of midpointing multiplied uncer
   assert.deepEqual(estimate.remainingMs, { low: 105_000, high: 495_000 }, 'keep the complete uncertainty range');
 });
 
+test('serial AI plans retain the expected cost of infrequent long model waits', () => {
+  const base = estimateWorkload({ prompt: 'modify code', currentInputTokens: 1_000 }, route);
+  const plan = applyAiPlan(base, { ...input, afterCalls: 0, submittedAt: 1_000 }, route, 1_000, {});
+  const estimate = estimateWorkloadTime(plan, r => ({ ...selectPerformance(r, [], [{ ...heuristicPerformance(), totalCallMs: 21_000,
+    appliesTo: { providerId: route.providerId, modelId: route.modelId } }]), totalCallSamplesMs: [1_000, 1_000, 1_000, 1_000, 101_000] }));
+  assert.equal(estimate.typicalMs, 174_000, 'Four future calls retain their 21s expected time, plus 90s tools; four individual 1s medians understate the chain');
+});
+
 test('AI plan accepts bounded work metadata and rejects inverted or content-bearing input', () => {
   assert.deepEqual(aiPlanSchema.parse(input), input);
   for (const invalid of [

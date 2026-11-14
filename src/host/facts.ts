@@ -30,14 +30,14 @@ export interface TaskFact {
   step: number; stepStartedAt: number; route: RouteFact | null;
   calls: CallFact[]; tools: Record<string, ToolFact>;
   workloadScale?: WorkloadScale;
-  goalId?: string;
+  goalId?: string; goalHasPriorWork?: boolean;
   aiPlan?: AiPlan;
 }
 type PromptFeatures = Pick<TaskFact, 'taskType' | 'promptChars' | 'attachmentCount' | 'explicitOutputWords' | 'userMessages' | 'workloadScale'>;
 export interface FactsState {
   sessionId: string; inheritedEventCount: number; lastSeq: number; currentTurn: number | null;
   pendingPrompt: PromptFeatures | null;
-  goal?: { id: string; phase: string; features: PromptFeatures } | null;
+  goal?: { id: string; phase: string; features: PromptFeatures; scopeSeq?: number } | null;
   route: RouteFact | null; tasks: Record<string, TaskFact>;
   view: { revision: number; currentTurn: number | null };
   error: string | null;
@@ -123,11 +123,12 @@ export function foldFacts(state: FactsState, event: SessionEvent, classify: Clas
     const count = /(?:\b|约|写|生成|输出)(\d{1,6})\s*(?:字|words?\b)/i.exec(objective);
     const features: PromptFeatures = { taskType: scale === 'task' ? taskType : 'code', workloadScale: scale,
       promptChars: objective.length, attachmentCount: 0, explicitOutputWords: count ? Number(count[1]) : null, userMessages: 0 };
-    next.goal = { id: event.data.goal.id, phase: event.data.goal.phase, features };
+    const scopeSeq = event.data.operation === 'create' || event.data.operation === 'edit' || next.goal?.id !== event.data.goal.id ? event.seq : next.goal?.scopeSeq ?? 0;
+    next.goal = { id: event.data.goal.id, phase: event.data.goal.phase, features, scopeSeq };
     const current = next.currentTurn === null ? undefined : next.tasks[String(next.currentTurn)];
     if (current && current.endedAt === null && next.goal.phase === 'active') {
       const task = { ...current, ...mergePrompt(current, features), goalId: next.goal.id };
-      if (event.data.operation === 'create' || event.data.operation === 'edit') { delete task.aiPlan; task.scopeChanged = true; }
+      if (event.data.operation === 'create' || event.data.operation === 'edit') { delete task.aiPlan; task.scopeChanged = true; task.goalHasPriorWork = false; }
       next.tasks[String(task.turn)] = task;
     }
     return next;
@@ -147,8 +148,10 @@ export function foldFacts(state: FactsState, event: SessionEvent, classify: Clas
   if (event.type === 'turn/start') {
     if (next.goal?.phase === 'active') next.pendingPrompt = mergePrompt(next.goal.features, next.pendingPrompt ?? { taskType: 'unknown', promptChars: 0, attachmentCount: 0, explicitOutputWords: null, userMessages: 0 });
     const turn = event.data.turn;
+    const goalHasPriorWork = next.goal?.phase === 'active' && Object.values(next.tasks).some(past => past.goalId === next.goal!.id
+      && past.calls.some(call => call.seq > (next.goal!.scopeSeq ?? 0)));
     next.currentTurn = turn;
-    next.tasks[String(turn)] = { turn, startSeq: event.seq, startedAt: event.time, endedAt: null, lastAt: event.time, state: 'running', taskType: 'unknown', promptChars: 0, attachmentCount: 0, explicitOutputWords: null, userMessages: 0, scopeChanged: false, step: 0, stepStartedAt: event.time, route: next.route, calls: [], tools: {}, ...(next.goal?.phase === 'active' ? { goalId: next.goal.id } : {}), ...(next.pendingPrompt ?? {}) };
+    next.tasks[String(turn)] = { turn, startSeq: event.seq, startedAt: event.time, endedAt: null, lastAt: event.time, state: 'running', taskType: 'unknown', promptChars: 0, attachmentCount: 0, explicitOutputWords: null, userMessages: 0, scopeChanged: false, step: 0, stepStartedAt: event.time, route: next.route, calls: [], tools: {}, ...(next.goal?.phase === 'active' ? { goalId: next.goal.id, goalHasPriorWork } : {}), ...(next.pendingPrompt ?? {}) };
     next.pendingPrompt = null;
     // Bound the per-session checkpoint. Older completed snapshots remain in plugin storage.
     const old = Object.keys(next.tasks).sort((a, b) => Number(a) - Number(b));

@@ -4,10 +4,11 @@
 
 - Reconstruct engineering scope from the official `goal/change` event before the first Agent turn and retain it through goal-sourced continuation messages. Store coarse scope metadata without objective text.
 - Separate small tasks, complete projects and multi-app systems for the first engineering reference. Complete systems no longer inherit a seconds-scale generic task budget; clearly label the initial reference and preserve its full interval.
+- Preserve small finishing plans on a continued Goal with observed prior work; an objective edit resets that exception.
 - Distinguish `whole_goal` from `current_turn` model plans and reject implausibly small initial plans for substantial engineering scope. Require planning as the first work tool and include integration, verification and delivery.
-- Restore numeric central ETA references, preserve them in Client caches and retained details, and keep invalidated follow-up forecasts out of current token/cost budgets.
+- Restore numeric central ETA references, preserve them in Client caches and retained details, and keep invalidated follow-up forecasts out of current token/cost budgets. Use expected request durations along serial chains so infrequent long waits are retained.
 - Record bounded actual Host observer, dispatch, snapshot and flush timings without identifiers or content. Report measurements and their limitations separately from accuracy claims.
-- Algorithm `p0-0.3.0-goal1`; original initial predictions, usage and historical price resolutions remain unchanged. Stable publication follows the current acceptance report.
+- Algorithm `p0-0.3.0-goal2`; original initial predictions, usage and historical price resolutions remain unchanged. Stable publication follows the current acceptance report.
 
 ## 0.2.9-beta.1 — narrower evidence-based budgets and simpler details
 

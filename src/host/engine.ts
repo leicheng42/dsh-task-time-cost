@@ -212,7 +212,7 @@ export class EstimatorEngine {
         && p?.providerId === route.providerId && p.modelId === route.modelId && p.endpointFingerprint === route.endpointFingerprint
         && p.reasoningEffort === route.reasoningEffort && p.serviceTier === route.serviceTier;
     }).sort((a, b) => a.current.endedAt! - b.current.endedAt!).slice(-this.config.maxSamplesPerBucket);
-    const signature = JSON.stringify([task.taskType, task.workloadScale, task.goalId, task.explicitOutputWords, task.attachmentCount, task.route, requestMode, input, task.aiPlan, comparable.map(record => record.id)]);
+    const signature = JSON.stringify([task.taskType, task.workloadScale, task.goalId, task.goalHasPriorWork, task.explicitOutputWords, task.attachmentCount, task.route, requestMode, input, task.aiPlan, comparable.map(record => record.id)]);
     const previous = this.plans.get(key);
     if (previous?.signature === signature) return structuredClone(previous.plan);
     const templates = this.templates(route);
@@ -223,7 +223,7 @@ export class EstimatorEngine {
       rules: [{ id: 'durable-classification', kind: task.taskType, patterns: ['.*'] }] });
     if (task.aiPlan) {
       const wholeGoal = !task.goalId || task.aiPlan.scope === 'whole_goal';
-      const tooSmallInitially = task.workloadScale !== undefined && task.workloadScale !== 'task' && task.calls.length < 3
+      const tooSmallInitially = !(task.goalId && task.goalHasPriorWork) && task.workloadScale !== undefined && task.workloadScale !== 'task' && task.calls.length < 3
         && task.aiPlan.remainingCalls.high < (task.workloadScale === 'program' ? 80 : 20)
         && task.aiPlan.remainingToolSeconds.high < (task.workloadScale === 'program' ? 1800 : 600);
       if (wholeGoal && !tooSmallInitially) plan = applyAiPlan(plan, task.aiPlan, route, this.currentInput.get(key) ?? input, this.engineConfig());

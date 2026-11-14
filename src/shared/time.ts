@@ -118,11 +118,12 @@ export function schedule(units: ScheduleUnit[], options: ScheduleOptions = {}): 
 }
 
 function nominalRequestTime(request: RequestBudget, performance: PerformanceEstimate, progress: RequestProgress, range: Span, config: EstimatorConfig): number {
-  const median = (values: number[]) => values[Math.floor((values.length - 1) / 2)]!;
   const wait = (center: number, samples: number[]) => {
     const eligible = samples.filter(value => Number.isFinite(value) && value >= 0
-      && (progress.phase === 'not-started' || value > progress.elapsedMs)).sort((a, b) => a - b);
-    const nominal = eligible.length >= config.minConditionalSamples ? median(eligible) : center;
+      && (progress.phase === 'not-started' || value > progress.elapsedMs));
+    // Expected times add along a serial chain. Summing per-call medians loses
+    // infrequent long waits; in-flight calls use the conditional expected wait.
+    const nominal = eligible.length >= config.minConditionalSamples ? eligible.reduce((sum, value) => sum + value, 0) / eligible.length : center;
     return Math.max(0, nominal - (progress.phase === 'not-started' ? 0 : progress.elapsedMs));
   };
   const text = request.route.requestMode === 'text' && request.visibleTextTokens !== null

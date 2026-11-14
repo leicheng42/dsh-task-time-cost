@@ -512,6 +512,22 @@ test('review/initial-goal: a large first goal cannot be replaced by a short turn
   assert.ok(revised.remainingTypicalMs! > 1_800_000);
 });
 
+test('review/goal-continuation: prior work permits a small finishing plan, while an edited goal starts fresh', async t => {
+  const env = await environment(t, liveConfig()), prior = task(env.now() - 100_000, 'code');
+  prior.workloadScale = 'program'; prior.goalId = 'continued-goal'; prior.endedAt = env.now() - 1;
+  prior.calls = [callFixture(env.now() - 90_000).fact];
+  let state = liveState(prior);
+  state.goal = { id: 'continued-goal', phase: 'active', features: { taskType: 'code', workloadScale: 'program', promptChars: 100, attachmentCount: 0, explicitOutputWords: null, userMessages: 0 } };
+  state = foldFacts(state, { type: 'turn/start', seq: 100, time: env.now(), data: { turn: 2 } } as unknown as SessionEvent, () => 'code');
+  const finishing = state.tasks['2']!;
+  finishing.aiPlan = { remainingCalls: { low: 1, high: 2 }, remainingOutputTokens: { low: 100, high: 400 }, remainingToolSeconds: { low: 0, high: 1 }, stage: 'finishing', afterCalls: 0, submittedAt: env.now(), scope: 'whole_goal' };
+  assert.ok(env.engine.estimate('goal-continuation', finishing, 1, true).reasons.includes('ai-workload-plan-reference'), 'Continuing a worked-on Goal may have only a small final step left');
+  state = foldFacts(state, { type: 'goal/change', seq: 101, time: env.now(), data: { kind: 'goal/change', version: 1, operation: 'edit', goal: { id: 'continued-goal', revision: 2, objective: '开发完整四端系统，真实API和共享后端，E2E验收并交付', phase: 'active', maxGoalRounds: 16 }, roundsStarted: 1, createdAt: 1, updatedAt: env.now() } } as unknown as SessionEvent, () => 'code');
+  state = foldFacts(state, { type: 'turn/start', seq: 102, time: env.now(), data: { turn: 3 } } as unknown as SessionEvent, () => 'code');
+  state.tasks['3']!.aiPlan = structuredClone(finishing.aiPlan);
+  assert.ok(env.engine.estimate('goal-continuation', state.tasks['3']!, 2, true).reasons.includes('ai-plan-too-small-for-initial-scope'), 'Work before an objective edit cannot bypass protection for the new objective');
+});
+
 test('review/replan: a human follow-up cannot replace a large AI plan with a short template', async t => {
   const env = await environment(t, liveConfig()), current = task(env.now());
   current.aiPlan = { remainingCalls: { low: 40, high: 50 }, remainingOutputTokens: { low: 8_000, high: 12_000 },

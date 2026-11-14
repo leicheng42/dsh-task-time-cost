@@ -152,7 +152,7 @@ export async function apply(ctx: Context, rawConfig: unknown): Promise<void> {
   } catch (error) { repository.diagnose('baseline-load', 'Baseline data unavailable; engineering defaults remain active.'); ctx.logger.warn(error); }
   const engine = new EstimatorEngine(config, repository, baselines);
   const definition = {
-    key: 'taskEstimator', stateVersion: 4, stateSchema: factsSchema,
+    key: 'taskEstimator', stateVersion: 5, stateSchema: factsSchema,
     init: initialFacts,
     apply(state, event) {
       try { return foldFacts(state, event, prompt => classifyTask({ prompt, currentInputTokens: null }, config.classificationRules).kind); }
