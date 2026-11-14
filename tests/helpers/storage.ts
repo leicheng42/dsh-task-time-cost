@@ -9,7 +9,7 @@ import { Repository } from '../../src/host/repository.ts';
 
 /** Use the actual shipped domain + backend; never relax their filename or durability contracts. */
 export async function storageFixture() {
-  const root = await mkdtemp(join(tmpdir(), 'dsh-task-estimator-test-'));
+  const root = await mkdtemp(join(tmpdir(), 'dsh-task-estimator-test-空 格-'));
   const resolvedRoot = await realpath(root);
   const resolvedParent = await realpath(tmpdir());
   const ctx = new Context();

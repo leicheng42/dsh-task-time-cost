@@ -1,5 +1,13 @@
 # Changelog / 发行说明
 
+## 0.3.1 — compatibility update
+
+- Replace exact rc.2 Host and protocol-peer pins with the reviewed `>=0.2.2-rc.1 <0.3.0-0` API line; exclude older APIs and the next minor, including its prereleases. No version exemptions.
+- Declare Windows, macOS and Linux Hosts; use portable Node/browser facilities and exercise Unicode/space storage paths.
+- Mark the visible custom popover as a macOS window-drag exclusion, following the DSH migration contract.
+- Add SDK rc.1/rc.2/rc.3 and three-OS CI plus Node26 coverage, and install the same baseline prebuilt archive through each actual SDK CLI. Separate native Desktop observations from SDK/installer evidence.
+- Estimator algorithm, data schema, usage, original forecasts and historical price rules remain unchanged.
+
 ## 0.3.0 — 2026-11-14
 
 - Reconstruct engineering scope from the official `goal/change` event before the first Agent turn and retain it through goal-sourced continuation messages. Store coarse scope metadata without objective text.

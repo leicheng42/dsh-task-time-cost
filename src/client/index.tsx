@@ -156,7 +156,7 @@ export function applyClient(ctx: Context): void {
         <span className="dte-line-text">{line}</span>
       </button>
       {expanded && createPortal(<div className="dte" style={{ display: 'contents' }}
-        onPointerDown={event => event.stopPropagation()} onMouseDown={event => event.stopPropagation()} onClick={event => event.stopPropagation()}><div id={`${id}-panel`} className="dte-pop" role="dialog"
+        onPointerDown={event => event.stopPropagation()} onMouseDown={event => event.stopPropagation()} onClick={event => event.stopPropagation()}><div id={`${id}-panel`} className="dte-pop" role="dialog" data-window-drag-exclude=""
         aria-label={t(tail ? 'turnTimeTitle' : 'titleShort')} ref={panel}>
         <div className="dte-pop-head">
           <span className="dte-pop-title"><ClockIcon state={snapshot?.state ?? 'idle'} />{t(tail ? 'turnTimeTitle' : 'titleShort')}</span>
