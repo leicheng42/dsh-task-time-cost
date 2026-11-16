@@ -107,6 +107,24 @@ export function Management({ remote, store, t, locale }: Props) {
     setValidation('');
     if (parsed && value.trim() && Number.isFinite(Number(value))) setDraft(JSON.stringify({ ...parsed, [key]: Number(value) }, null, 2));
   };
+  const estimator = (() => {
+    try {
+      const parsed = parseConfiguration(draft) as Record<string, unknown>;
+      const value = (parsed.estimatorModel ?? {}) as Record<string, unknown>;
+      return { enabled: value.enabled === true, provider: typeof value.provider === 'string' ? value.provider : '',
+        model: typeof value.model === 'string' ? value.model : '',
+        timeoutMs: typeof value.timeoutMs === 'number' ? value.timeoutMs : 20_000,
+        delayMs: typeof value.delayMs === 'number' ? value.delayMs : 8_000 };
+    } catch { return { enabled: false, provider: '', model: '', timeoutMs: 20_000, delayMs: 8_000 }; }
+  })();
+  const changeEstimator = (patch: Partial<typeof estimator>) => {
+    try {
+      const parsed = parseConfiguration(draft);
+      setDraft(JSON.stringify({ ...parsed, estimatorModel: { ...estimator, ...patch } }, null, 2));
+      setSuccess(null);
+      setValidation('');
+    } catch { /* Keep the last valid draft while the JSON editor is mid-edit. */ }
+  };
   const changeJson = (value: string) => {
     setDraft(value);
     setSuccess(null);
@@ -154,6 +172,29 @@ export function Management({ remote, store, t, locale }: Props) {
       <form onSubmit={save} noValidate aria-label={t('config')} aria-describedby={validation ? `${id}-validation` : undefined}>
         <details ref={advancedSection} className="dte-subsection">
           <summary>{t('advancedSettings')}</summary>
+          <fieldset className="dte-fieldset">
+            <legend>{t('estimatorModelTitle')}</legend>
+            <p className="dte-muted dte-small" id={`${id}-estimator-notice`}>{t('estimatorModelNotice')}</p>
+            <label className="dte-field dte-check" htmlFor={`${id}-estimator-enabled`}>
+              <input id={`${id}-estimator-enabled`} type="checkbox" checked={estimator.enabled} disabled={pending !== null}
+                aria-describedby={`${id}-estimator-notice`} onChange={(event) => changeEstimator({ enabled: event.currentTarget.checked })} />
+              <span>{t('estimatorModelEnabled')}</span>
+            </label>
+            <div className="dte-grid">
+              <label className="dte-field" htmlFor={`${id}-estimator-provider`}><span>{t('estimatorModelProvider')}</span>
+                <input id={`${id}-estimator-provider`} type="text" autoComplete="off" value={estimator.provider} disabled={pending !== null}
+                  onChange={(event) => changeEstimator({ provider: event.currentTarget.value })} /></label>
+              <label className="dte-field" htmlFor={`${id}-estimator-model`}><span>{t('estimatorModelModel')}</span>
+                <input id={`${id}-estimator-model`} type="text" autoComplete="off" value={estimator.model} disabled={pending !== null}
+                  onChange={(event) => changeEstimator({ model: event.currentTarget.value })} /></label>
+              <label className="dte-field" htmlFor={`${id}-estimator-delay`}><span>{t('estimatorModelDelay')}</span>
+                <input id={`${id}-estimator-delay`} type="number" min={0} max={120000} step={1000} value={estimator.delayMs} disabled={pending !== null}
+                  onChange={(event) => changeEstimator({ delayMs: Number(event.currentTarget.value) })} /></label>
+              <label className="dte-field" htmlFor={`${id}-estimator-timeout`}><span>{t('estimatorModelTimeout')}</span>
+                <input id={`${id}-estimator-timeout`} type="number" min={1000} max={120000} step={1000} value={estimator.timeoutMs} disabled={pending !== null}
+                  onChange={(event) => changeEstimator({ timeoutMs: Number(event.currentTarget.value) })} /></label>
+            </div>
+          </fieldset>
           <div className="dte-grid">
             {configFields.map((field) => <label className="dte-field" key={field.key} htmlFor={`${id}-${field.key}`}>
               <span>{t(field.label)}</span>

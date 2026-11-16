@@ -1,8 +1,8 @@
 # DSH 任务耗时与费用预估
 
-**让等待有个参考。** 在 DeepSeek Harness 的 Token 统计旁，查看剩余时间、实际用时和费用参考；预估随本地路由表现持续校准，无需另起估价模型。
+**让等待有个参考。** 在 DeepSeek Harness 的 Token 统计旁，查看剩余时间、实际用时和费用参考；预估随本地路由表现持续校准；可选的独立估时模型默认关闭。
 
-[English](README.en.md) · [下载稳定版](https://github.com/leicheng42/dsh-task-time-cost/releases/tag/v0.3.3) · [使用指南](docs/public/guide.zh.md) · [反馈问题](https://github.com/leicheng42/dsh-task-time-cost/issues/new/choose)
+[English](README.en.md) · [下载稳定版](https://github.com/leicheng42/dsh-task-time-cost/releases/tag/v0.3.4) · [使用指南](docs/public/guide.zh.md) · [反馈问题](https://github.com/leicheng42/dsh-task-time-cost/issues/new/choose)
 
 [![Stable](https://img.shields.io/github/v/release/leicheng42/dsh-task-time-cost?label=stable)](https://github.com/leicheng42/dsh-task-time-cost/releases) [![CI](https://github.com/leicheng42/dsh-task-time-cost/actions/workflows/ci.yml/badge.svg)](https://github.com/leicheng42/dsh-task-time-cost/actions/workflows/ci.yml) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -12,13 +12,14 @@
 
 ## 它能帮你做什么
 
-0.3.3 提供以下功能：
+0.3.4 提供以下功能：
 
 - **一眼看到还要多久**：浮窗顶部只放中心时间，下面用一条刻度表示完整区间，端点标出范围；其余信息收进小卡片。
 - **只显示真正有用的信息**：未知的数值不再占一行，重复的范围会合并，说明文字压缩为一行；完整依据和精确金额在「⋯ → 预估详情」里。
 - **时间轴 + 三条进度条**：顶部是一条真实时间轴（从任务开始到预计完成，标出“现在”的位置与不确定区间）；时间、Token、费用各有一条“已用 / 还需”的进度条，未知时用虚线表示，不用空条冒充 0%。
 - **直接给出完成时刻**：入口与面板都显示“预计 HH:MM 完成”，跨天保留日期；卷动入口行也保留这一信息。
 - **先计划再给数**：任务刚开始、既没有执行模型的计划也没有本地样本时，面板明确显示“正在评估任务”，不打印先验数字；执行模型提交 `task_estimate_plan` 后转为计划预估。
+- **可选独立估时模型**：在设置里开启后，若执行模型在等待窗口内没有提交计划，插件会用你指定的 provider/模型做一次有界估时（默认关闭，并明确提示会把任务描述发给该模型）。
 - **跨版本与平台**：支持当前 0.2.x API 兼容线，修复 rc.3 安装拒绝；0.3 及以上留待新接口验证。深色主题、窄窗口与键盘操作沿用宿主的设计变量。
 - **首次也看项目规模**：从普通任务和真实 Goal 目标识别完整工程；多端系统先给项目级「初估」，再由执行模型的整个目标计划修正，避免先按短回复显示几十秒。
 - **估计还要多久**：显示中心时间与完整参考范围；本地可比样本足够时，使用实际工作量分布更新预算。
@@ -29,10 +30,10 @@
 
 ## 安装
 
-在 DSH 的**插件管理 → 添加插件**中输入 `dsh-task-time-cost@0.3.3` 安装稳定版；两个分发渠道均提供预构建文件，无需运行安装脚本。
+在 DSH 的**插件管理 → 添加插件**中输入 `dsh-task-time-cost@0.3.4` 安装稳定版；两个分发渠道均提供预构建文件，无需运行安装脚本。
 
 ```sh
-dsh plugin --profile desktop add dsh-task-time-cost@0.3.3
+dsh plugin --profile desktop add dsh-task-time-cost@0.3.4
 ```
 
 也可从 GitHub Release 安装固定版本归档：
@@ -42,13 +43,13 @@ dsh plugin --profile desktop add dsh-task-time-cost@0.3.3
 3. 在会话底部 **Token 统计旁点击时钟**；预测 Token 直接显示，右上角 **⋯ → 设置与校准**查看本地路由数据。
 
 ```text
-https://github.com/leicheng42/dsh-task-time-cost/releases/download/v0.3.3/dsh-task-time-cost-0.3.3.tgz
+https://github.com/leicheng42/dsh-task-time-cost/releases/download/v0.3.4/dsh-task-time-cost-0.3.4.tgz
 ```
 
 CLI（将 desktop 换成你的实际 profile）：
 
 ```sh
-dsh plugin --profile desktop add https://github.com/leicheng42/dsh-task-time-cost/releases/download/v0.3.3/dsh-task-time-cost-0.3.3.tgz
+dsh plugin --profile desktop add https://github.com/leicheng42/dsh-task-time-cost/releases/download/v0.3.4/dsh-task-time-cost-0.3.4.tgz
 ```
 
 ## 支持范围
@@ -61,7 +62,7 @@ dsh plugin --profile desktop add https://github.com/leicheng42/dsh-task-time-cos
 
 ## 隐私与信任
 
-默认不保存提示词、代码正文、工具参数或凭证，不上传统计，不后台联网更新价格，也不另起估价模型请求。导出包含配置与路由/会话身份，分享前请检查。[隐私说明](docs/public/privacy.md)
+默认不保存提示词、代码正文、工具参数或凭证，不上传统计，不后台联网更新价格。**独立估时模型默认关闭**；只有你显式启用并指定 provider 与模型后，任务描述才会在该次请求中发送给该模型，本地不保存这些文本。导出包含配置与路由/会话身份，分享前请检查。[隐私说明](docs/public/privacy.md)
 
 每个 Release 附 SHA-256 与验证摘要。更新包后按宿主提示重启；出现反复加载错误时保留诊断，避免连续刷新。
 

@@ -20,6 +20,15 @@ export interface RouteOverride {
   forecastCacheWrite1hTokens: Span | null;
   forecastReasoningTokens: Span | null;
 }
+export interface EstimatorModelConfig {
+  /** Off by default: enabling sends the task text to a second model. */
+  enabled: boolean;
+  provider: string;
+  model: string;
+  timeoutMs: number;
+  /** Wait this long for the executing agent's own plan before asking the model. */
+  delayMs: number;
+}
 export interface PluginConfig extends EstimatorConfig {
   prices: PriceEntry[];
   usePublicPriceCatalog: boolean;
@@ -27,6 +36,7 @@ export interface PluginConfig extends EstimatorConfig {
   routeOverrides: Record<string, RouteOverride>;
   workloadTemplates: WorkloadTemplate[];
   classificationRules: ClassificationRule[];
+  estimatorModel: EstimatorModelConfig;
 }
 const rangeSchema = z.object({ low: z.number().finite().nonnegative(), high: z.number().finite().nonnegative() })
   .strict().refine(value => value.low <= value.high);
@@ -45,7 +55,7 @@ const routeSchema = z.object({
 export function validatePluginConfig(raw: unknown): PluginConfig {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new TypeError('Configuration must be an object');
   const input = raw as Record<string, unknown>;
-  const { prices = [], usePublicPriceCatalog = true, sameAs = [], routeOverrides = {}, workloadTemplates = [...DEFAULT_TEMPLATES], classificationRules = [...DEFAULT_CLASSIFICATION_RULES], ...engine } = input;
+  const { prices = [], usePublicPriceCatalog = true, sameAs = [], routeOverrides = {}, workloadTemplates = [...DEFAULT_TEMPLATES], classificationRules = [...DEFAULT_CLASSIFICATION_RULES], estimatorModel = {}, ...engine } = input;
   if (typeof usePublicPriceCatalog !== 'boolean') throw new TypeError('usePublicPriceCatalog must be a boolean');
   const validated = validateConfig(engine as Partial<EstimatorConfig>);
   if (validated.saveRawContent || validated.magpieIntegration) throw new TypeError('This release supports local DSH statistics only; saveRawContent and magpieIntegration must stay false');
@@ -63,7 +73,15 @@ export function validatePluginConfig(raw: unknown): PluginConfig {
     ruleIds.add(rule.id);
     for (const pattern of [...rule.patterns, ...(rule.excludePatterns ?? [])]) { if (typeof pattern !== 'string' || pattern.length > 1000) throw new TypeError('Invalid classification pattern'); new RegExp(pattern, 'iu'); }
   }
-  return { ...validated, prices: structuredClone(prices) as PriceEntry[], usePublicPriceCatalog, sameAs: structuredClone(sameAs) as SameAs[], routeOverrides: routes,
+  const model = z.object({
+    enabled: z.boolean().default(false),
+    provider: z.string().max(120).default(''),
+    model: z.string().max(160).default(''),
+    timeoutMs: z.number().int().min(1_000).max(120_000).default(20_000),
+    delayMs: z.number().int().min(0).max(120_000).default(8_000),
+  }).strict().parse(estimatorModel);
+  if (model.enabled && (!model.provider.trim() || !model.model.trim())) throw new TypeError('An enabled estimator model needs an explicit provider and model');
+  return { ...validated, estimatorModel: model, prices:  structuredClone(prices) as PriceEntry[], usePublicPriceCatalog, sameAs: structuredClone(sameAs) as SameAs[], routeOverrides: routes,
     workloadTemplates: structuredClone(workloadTemplates) as WorkloadTemplate[], classificationRules: structuredClone(classificationRules) as ClassificationRule[] };
 }
 export function defaultPluginConfig(): PluginConfig {
@@ -82,4 +100,11 @@ configFields.sameAs = Schema.array(Schema.any()).default([]).description('Explic
 configFields.routeOverrides = Schema.dict(Schema.any()).default({}).description('Opaque endpoint identities, service tiers and adapter-specific usage semantics.');
 configFields.workloadTemplates = Schema.array(Schema.any()).default([...DEFAULT_TEMPLATES]).description('Versioned workload assumptions for each task type.');
 configFields.classificationRules = Schema.array(Schema.any()).default([...DEFAULT_CLASSIFICATION_RULES]).description('Ordered local task classification rules.');
-export const Config = Schema.object(configFields).description('Local task time and cost estimates. No extra model calls or remote data uploads.');
+configFields.estimatorModel = Schema.object({
+  enabled: Schema.boolean().default(false).description('Off by default. When on, the task text is sent to the chosen model to produce the first numeric estimate.'),
+  provider: Schema.string().default('').description('Registered provider route for the estimator call.'),
+  model: Schema.string().default('').description('Model id used for the estimator call.'),
+  timeoutMs: Schema.number().min(1_000).max(120_000).default(20_000).description('Abort a single estimator call after this long.'),
+  delayMs: Schema.number().min(0).max(120_000).default(8_000).description('Wait this long for the executing agent plan before asking the model.'),
+}).default({ enabled: false, provider: '', model: '', timeoutMs: 20_000, delayMs: 8_000 }).description('Optional second-model estimator; disabled unless enabled explicitly.');
+export const Config = Schema.object(configFields).description('Local task time and cost estimates. The optional estimator model is off by default and, when enabled, sends the task text to the chosen model.');

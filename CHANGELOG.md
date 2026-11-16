@@ -1,5 +1,12 @@
 # Changelog / 发行说明
 
+## 0.3.4 — optional independent estimator model
+
+- Add an opt-in estimator model: with it enabled, a task that has no executing-agent plan after the configured wait window sends one bounded request to the provider/model you name and turns the reply into the same numeric plan.
+- The switch is off by default, requires an explicit provider and model, and states that the task text is sent to that model. The prompt and reply are never stored; only validated numbers reach the estimate, and any refusal, timeout or malformed reply keeps the template forecast.
+- The executing agent's own `task_estimate_plan` always wins over the estimator model, so enabling this cannot overwrite a plan the agent already submitted.
+- Tests cover prompt bounding, strict reply parsing, missing-route and disabled no-ops, and timeout cancellation.
+
 ## 0.3.3 — timeline and per-dimension progress
 
 - Replace the range gauge with a real timeline: the bar runs from the task start to the latest predicted finish, fills the elapsed part, keeps the unspent uncertainty as a lighter band, and marks the central estimate.

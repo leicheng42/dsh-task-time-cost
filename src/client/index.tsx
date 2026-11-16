@@ -173,7 +173,8 @@ export function applyClient(ctx: Context): void {
     })();
     const partialToken = snapshot?.observedTokenStatus === 'partial';
     const partialCost = !!snapshot && (snapshot.observedCostStatus === 'partial' || snapshot.forecastCostStatus === 'partial');
-    const sourceTag = snapshot?.reasons.includes('ai-workload-plan-reference') ? t('sourceAiPlan')
+    const sourceTag = snapshot?.reasons.includes('estimator-model-plan') ? t('sourceEstimator')
+      : snapshot?.reasons.includes('ai-workload-plan-reference') ? t('sourceAiPlan')
       : snapshot && (snapshot.localPerformanceSamples > 0 || snapshot.workloadSamples > 0) ? t('sourceLocal') : t('sourcePrior');
     // Three dimensions share one shape: spent is a fact, left and total are
     // forecasts. A missing value prints a dash instead of a zero.

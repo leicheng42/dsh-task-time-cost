@@ -24,6 +24,8 @@ import { descriptors } from '../shared/remote-contract.ts';
 import { retainedTimeForecast } from '../shared/retained-time.ts';
 import { ObserverMetrics } from './metrics.ts';
 import { observeHumanWaits } from './user-wait.ts';
+import { requestEstimatorPlan } from './estimator-model.ts';
+import { ESTIMATOR_PROMPT_LIMIT } from '../shared/estimator-model.ts';
 import { Config, validatePluginConfig } from './config.ts';
 import type { PluginConfig } from './config.ts';
 import { persistConfig } from './config-entry.ts';
@@ -185,7 +187,53 @@ export async function apply(ctx: Context, rawConfig: unknown): Promise<void> {
     const task = state.currentTurn === null ? Object.values(state.tasks).at(-1) : state.tasks[String(state.currentTurn)];
     if (task) engine.persist(agent.id, task, state.lastSeq);
   }
+  // The optional second-model estimator: the task text lives only in this map
+  // and is never written to storage; only accepted numbers reach the engine.
+  const taskTexts = new Map<string, string>();
+  const estimatorRequested = new Set<string>();
+  const estimatorTimers = new Set<ReturnType<typeof setTimeout>>();
+  function readUserText(data: unknown): string | null {
+    if (!data || typeof data !== 'object' || !('content' in data)) return null;
+    const content = (data as { content?: unknown }).content;
+    if (!Array.isArray(content)) return null;
+    const parts: string[] = [];
+    for (const block of content) {
+      if (!block || typeof block !== 'object') continue;
+      const candidate = block as { type?: unknown; text?: unknown };
+      if (candidate.type === 'text' && typeof candidate.text === 'string') parts.push(candidate.text);
+    }
+    const joined = parts.join('\n').trim();
+    return joined ? joined.slice(0, ESTIMATOR_PROMPT_LIMIT) : null;
+  }
+  function observeEstimatorInput(session: Session, event: { type: string; data: unknown }): void {
+    if (event.type === 'user/message') {
+      const text = readUserText(event.data);
+      if (text) taskTexts.set(session.id, text);
+      return;
+    }
+    if (event.type !== 'turn/start') return;
+    const turn = (event.data as { turn?: unknown }).turn;
+    if (typeof turn !== 'number') return;
+    const key = `${session.id}:${turn}`;
+    const text = taskTexts.get(session.id);
+    if (!text || estimatorRequested.has(key)) return;
+    estimatorRequested.add(key);
+    const timer = setTimeout(() => {
+      estimatorTimers.delete(timer);
+      void (async () => {
+        const state = projection.stateOf(session);
+        const task = state.tasks[String(turn)];
+        // The executing agent's own plan wins; never call the model when one exists.
+        if (!task || task.aiPlan || task.calls.length < 1) return;
+        const plan = await requestEstimatorPlan(ctx, config.estimatorModel, text);
+        if (plan) engine.setEstimatorPlan(session.id, turn, plan);
+      })().catch(() => undefined);
+    }, config.estimatorModel.delayMs);
+    estimatorTimers.add(timer);
+  }
+  ctx.effect(() => () => { for (const timer of estimatorTimers) clearTimeout(timer); estimatorTimers.clear(); taskTexts.clear(); estimatorRequested.clear(); });
   ctx.on('session/event', (session, event) => {
+    if (config.estimatorModel.enabled) observeEstimatorInput(session, event);
     const agent = ctx.agents.get(session.id);
     safe(agent, () => {
       const state = projection.stateOf(session);

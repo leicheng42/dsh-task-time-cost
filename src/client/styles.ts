@@ -98,6 +98,10 @@ export const styles = `
 .dte .dte-status-line{margin:8px 0 0;color:var(--dsw-alias-label-tertiary);font-size:11px;line-height:1.5}
 .dte .dte-finish{margin:4px 0 0;color:var(--dsw-alias-label-secondary);font-size:12px;line-height:1.5;font-variant-numeric:tabular-nums}
 .dte .dte-source{margin-left:2px}
+.dte .dte-fieldset{margin:0 0 12px;padding:10px 12px;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;min-width:0}
+.dte .dte-fieldset legend{padding:0 4px;color:var(--dsw-alias-label-secondary);font-weight:500}
+.dte .dte-check{display:flex;align-items:center;gap:8px}
+.dte .dte-check input{width:auto;min-height:0}
 .dte .dte-metrics{display:flex;flex-direction:column;gap:14px;margin:16px 0 0}
 .dte .dte-metric-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
 .dte .dte-metric-label{color:var(--dsw-alias-label-secondary);font-size:12px;font-weight:500}

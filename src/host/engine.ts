@@ -15,6 +15,7 @@ import type { PlanScenario, RequestBudget, WorkloadHistory, WorkloadPlan, Worklo
 import { estimateContinuation, estimateWorkloadTime } from '../shared/time.ts';
 import type { RequestProgress } from '../shared/time.ts';
 import { applyAiPlan } from '../shared/ai-plan.ts';
+import type { AiPlan, AiPlanInput } from '../shared/ai-plan.ts';
 import type { RouteIdentity, Span, TaskKind } from '../shared/types.ts';
 import type { BaselineRecord } from '../shared/baselines.ts';
 import { performancePriorsFromBaselines, templatesFromBaselines } from '../shared/baseline-selection.ts';
@@ -38,6 +39,8 @@ export class EstimatorEngine {
   readonly profiles = new Map<string, ProviderProfile>();
   readonly workloadHistory = new Map<TaskKind, WorkloadHistory>();
   private readonly plans = new Map<string, { signature: string; plan: WorkloadPlan }>();
+  /** Plans from the optional estimator model; memory only, never persisted. */
+  private readonly estimatorPlans = new Map<string, AiPlan>();
   private readonly latest = new Map<string, { revision: number; at: number; snapshot: EstimateSnapshot }>();
   private readonly currentInput = new Map<string, number | null>();
   private readonly initialInput = new Map<string, number | null>();
@@ -55,7 +58,8 @@ export class EstimatorEngine {
     this.rebuildCalibration();
   }
   private engineConfig() {
-    const { prices: _p, usePublicPriceCatalog: _catalog, sameAs: _s, routeOverrides: _r, workloadTemplates: _w, classificationRules: _c, ...engine } = this.config;
+    // Host-owned settings never reach the pure estimator configuration.
+    const { prices: _p, usePublicPriceCatalog: _catalog, sameAs: _s, routeOverrides: _r, workloadTemplates: _w, classificationRules: _c, estimatorModel: _m, ...engine } = this.config;
     return engine;
   }
   private effectiveBaselines(): BaselineRecord[] {
@@ -197,14 +201,24 @@ export class EstimatorEngine {
       return JSON.stringify(configured) === JSON.stringify(standard) ? template : structuredClone(configured);
     });
   }
+  /** Store a plan from the estimator model; the executing agent's own plan always wins. */
+  setEstimatorPlan(sessionId: string, turn: number, plan: AiPlanInput): void {
+    const key = `${sessionId}:${turn}`;
+    const task = this.repository.tasks.get(key)?.current ?? null;
+    this.estimatorPlans.set(key, { ...plan, afterCalls: 0, submittedAt: Date.now() });
+    this.plans.delete(key);
+    void task;
+  }
   private plan(sessionId: string, task: TaskFact): WorkloadPlan {
     const key = `${sessionId}:${task.turn}`;
+    const estimatorPlan = this.estimatorPlans.get(key);
+    const aiPlan = task.aiPlan ?? estimatorPlan;
     const firstCall = task.calls[0];
     const input = this.initialInput.get(key) ?? (firstCall ? this.normalize(firstCall).promptTokens : null);
     const requestMode = task.calls.findLast(call => call.mode !== 'unknown' && (!task.route
       || call.route.providerId === task.route.providerId && call.route.modelId === task.route.modelId && call.route.reasoningEffort === task.route.reasoningEffort))?.mode ?? 'unknown';
     const route = this.route(task.route, requestMode);
-    const comparable = task.aiPlan ? [] : [...this.repository.tasks.values()].filter(record => {
+    const comparable = aiPlan ? [] : [...this.repository.tasks.values()].filter(record => {
       const past = record.current, p = past.performance;
       return record.id !== key && record.learned?.eligible && past.state === 'completed' && past.endedAt !== null
         && past.endedAt <= task.startedAt && record.savedAt > this.repository.resetAt
@@ -213,7 +227,7 @@ export class EstimatorEngine {
         && p?.providerId === route.providerId && p.modelId === route.modelId && p.endpointFingerprint === route.endpointFingerprint
         && p.reasoningEffort === route.reasoningEffort && p.serviceTier === route.serviceTier;
     }).sort((a, b) => a.current.endedAt! - b.current.endedAt!).slice(-this.config.maxSamplesPerBucket);
-    const signature = JSON.stringify([task.taskType, task.workloadScale, task.goalId, task.goalHasPriorWork, task.explicitOutputWords, task.attachmentCount, task.route, requestMode, input, task.aiPlan, comparable.map(record => record.id)]);
+    const signature = JSON.stringify([task.taskType, task.workloadScale, task.goalId, task.goalHasPriorWork, task.explicitOutputWords, task.attachmentCount, task.route, requestMode, input, aiPlan, comparable.map(record => record.id)]);
     const previous = this.plans.get(key);
     if (previous?.signature === signature) return structuredClone(previous.plan);
     const templates = this.templates(route);
@@ -222,12 +236,15 @@ export class EstimatorEngine {
     { config: this.engineConfig(), templates, history: [...this.workloadHistory.values()],
       observations: comparable.map(record => ({ requestCount: record.learned!.calls, visibleOutputTokens: record.learned!.visibleOutputTokens, toolMs: record.learned!.toolWorkMs })),
       rules: [{ id: 'durable-classification', kind: task.taskType, patterns: ['.*'] }] });
-    if (task.aiPlan) {
-      const wholeGoal = !task.goalId || task.aiPlan.scope === 'whole_goal';
+    if (aiPlan) {
+      const wholeGoal = !task.goalId || aiPlan.scope === 'whole_goal';
       const tooSmallInitially = !(task.goalId && task.goalHasPriorWork) && task.workloadScale !== undefined && task.workloadScale !== 'task' && task.calls.length < 3
-        && task.aiPlan.remainingCalls.high < (task.workloadScale === 'program' ? 80 : 20)
-        && task.aiPlan.remainingToolSeconds.high < (task.workloadScale === 'program' ? 1800 : 600);
-      if (wholeGoal && !tooSmallInitially) plan = applyAiPlan(plan, task.aiPlan, route, this.currentInput.get(key) ?? input, this.engineConfig());
+        && aiPlan.remainingCalls.high < (task.workloadScale === 'program' ? 80 : 20)
+        && aiPlan.remainingToolSeconds.high < (task.workloadScale === 'program' ? 1800 : 600);
+      if (wholeGoal && !tooSmallInitially) {
+        plan = applyAiPlan(plan, aiPlan, route, this.currentInput.get(key) ?? input, this.engineConfig());
+        if (!task.aiPlan) plan.reasons.push('estimator-model-plan');
+      }
       else plan.reasons.push(tooSmallInitially ? 'ai-plan-too-small-for-initial-scope' : 'ai-turn-plan-not-goal-total');
     }
     this.plans.set(key, { signature, plan });
@@ -577,7 +594,7 @@ export class EstimatorEngine {
     for (const key of this.startedHere) if (key.startsWith(`${sessionId}:`)) this.startedHere.delete(key);
   }
   dispose(): void {
-    this.flushPending(); this.runtime.clear(); this.latest.clear(); this.plans.clear(); this.currentInput.clear(); this.initialInput.clear();
+    this.flushPending(); this.runtime.clear(); this.latest.clear(); this.plans.clear(); this.estimatorPlans.clear(); this.currentInput.clear(); this.initialInput.clear();
     this.requestInputs.clear(); this.startedHere.clear(); this.unavailable.clear();
   }
 }
