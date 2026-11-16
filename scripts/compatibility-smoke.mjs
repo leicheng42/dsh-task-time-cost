@@ -55,8 +55,10 @@ const listing = spawnSync('tar', ['-tzf', archive], { encoding: 'utf8', windowsH
 assert.equal(listing.status, 0, listing.error?.message ?? listing.stderr);
 const files = listing.stdout.trim().split(/\r?\n/).filter(Boolean);
 assert.ok(files.every(file => file.startsWith('package/') && !file.includes('\\') && !file.split('/').includes('..')));
-const unpacked = join(work, 'unpacked');
-await mkdir(unpacked);
+// Unpack inside the SDK root so the archive's own peer imports resolve against
+// that SDK's node_modules instead of this repository's dev dependencies.
+const unpacked = join(sdkRoot, `.compat-unpacked-${process.pid}`);
+await mkdir(unpacked, { recursive: true });
 await command('unpack', 'tar', ['-xzf', archive, '-C', unpacked]);
 const packedRoot = join(unpacked, 'package');
 const manifest = JSON.parse(await readFile(join(packedRoot, 'package.json'), 'utf8'));
