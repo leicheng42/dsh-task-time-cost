@@ -2,20 +2,23 @@
 
 **A reference for the wait.** See remaining time, actual duration and cost references beside native Token statistics in DeepSeek Harness, calibrated to local routes without a separate estimator-model call.
 
-[中文](README.md) · [Download stable](https://github.com/leicheng42/dsh-task-time-cost/releases/tag/v0.3.1) · [User guide](docs/public/guide.en.md) · [Report an issue](https://github.com/leicheng42/dsh-task-time-cost/issues/new/choose)
+[中文](README.md) · [Download stable](https://github.com/leicheng42/dsh-task-time-cost/releases/tag/v0.3.2) · [User guide](docs/public/guide.en.md) · [Report an issue](https://github.com/leicheng42/dsh-task-time-cost/issues/new/choose)
 
 [![Stable](https://img.shields.io/github/v/release/leicheng42/dsh-task-time-cost?label=stable)](https://github.com/leicheng42/dsh-task-time-cost/releases) [![CI](https://github.com/leicheng42/dsh-task-time-cost/actions/workflows/ci.yml/badge.svg)](https://github.com/leicheng42/dsh-task-time-cost/actions/workflows/ci.yml) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-<img src="docs/public/screenshots/summary-031.png" width="420" height="448" alt="Actual plugin panel: central remaining time, a range gauge, elapsed time, Tokens and reference cost" />
+<img src="docs/public/screenshots/summary-032.png" width="420" height="448" alt="Actual plugin panel: central remaining time, a range gauge, elapsed time, Tokens and reference cost" />
 
-*Actual panel on DSH Desktop 0.2.2-rc.2, cropped to the plugin's own surface. The gauge spans the reference range with a dot at the central estimate; values belong to the capture-time task and prices are public references.*
+*Actual panel on DSH Desktop 0.2.2-rc.2, cropped to the plugin's own surface. The top answers "how much longer and by when"; the gauge shows the full range; the table compares time, Tokens and cost through the same spent / left / forecast-total columns. Values belong to the capture-time task and prices are public references.*
 
 ## What it does
 
-Version 0.3.1 provides these features:
+Version 0.3.2 provides these features:
 
 - **See the wait at a glance:** the panel leads with one central figure, a gauge for the full range with its bounds, then small cards for everything else.
 - **Only show what is useful:** unknown values no longer take a row, repeated ranges are merged, and the explanation is a single line; full evidence and exact amounts live under More → details.
+- **One reading shape for three dimensions:** time, Tokens and cost all show spent (a fact), left (a forecast) and forecast total; a missing value is a dash, never a zero.
+- **A completion clock:** both the entry line and the panel say "done by HH:MM", keeping the date when it crosses midnight.
+- **Plan before numbers:** while a task has neither an executing-agent plan nor a local sample, the panel says it is still assessing instead of printing a prior; a submitted `task_estimate_plan` switches it to a planned estimate.
 - **Version and platform compatibility:** admit the current 0.2.x API line, including rc.3; 0.3+ awaits a new contract review. Dark theme, narrow windows and keyboard use follow the Host's own design tokens.
 - **Start with the project scope:** read ordinary requests and real Goal objectives; complete multi-app systems receive a project-scale initial reference, then a full-objective model plan can revise it.
 - **Estimate the wait:** show a central time and the complete reference interval; sufficient comparable local tasks update the workload budget using their observed distribution.
@@ -26,10 +29,10 @@ Version 0.3.1 provides these features:
 
 ## Install
 
-In DSH **Plugin Manager → Add plugin**, enter `dsh-task-time-cost@0.3.1` for the stable release. Both channels supply prebuilt files with no installation scripts.
+In DSH **Plugin Manager → Add plugin**, enter `dsh-task-time-cost@0.3.2` for the stable release. Both channels supply prebuilt files with no installation scripts.
 
 ```sh
-dsh plugin --profile desktop add dsh-task-time-cost@0.3.1
+dsh plugin --profile desktop add dsh-task-time-cost@0.3.2
 ```
 
 Alternatively, install the pinned GitHub Release archive:
@@ -39,18 +42,18 @@ Alternatively, install the pinned GitHub Release archive:
 3. Open the **clock beside Token statistics** for forecast Tokens. **More (⋯) → Settings and calibration** shows route samples.
 
 ```text
-https://github.com/leicheng42/dsh-task-time-cost/releases/download/v0.3.1/dsh-task-time-cost-0.3.1.tgz
+https://github.com/leicheng42/dsh-task-time-cost/releases/download/v0.3.2/dsh-task-time-cost-0.3.2.tgz
 ```
 
 CLI (replace desktop with your profile):
 
 ```sh
-dsh plugin --profile desktop add https://github.com/leicheng42/dsh-task-time-cost/releases/download/v0.3.1/dsh-task-time-cost-0.3.1.tgz
+dsh plugin --profile desktop add https://github.com/leicheng42/dsh-task-time-cost/releases/download/v0.3.2/dsh-task-time-cost-0.3.2.tgz
 ```
 
 ## Supported scope
 
-**0.3.1: DSH `>=0.2.2-rc.1 <0.3.0-0` / Node 24+; Windows, macOS and Linux Hosts.** The CI matrix covers rc.1/rc.2/rc.3 on all three operating systems with one prebuilt archive. Windows Desktop has actual UI acceptance; native macOS/Linux pixel and window-drag acceptance remains unverified. See [compatibility](COMPATIBILITY.md) and [acceptance scope](docs/public/acceptance.md).
+**0.3.2: DSH `>=0.2.2-rc.1 <0.3.0-0` / Node 24+; Windows, macOS and Linux Hosts.** The CI matrix covers rc.1/rc.2/rc.3 on all three operating systems with one prebuilt archive. Windows Desktop has actual UI acceptance; native macOS/Linux pixel and window-drag acceptance remains unverified. See [compatibility](COMPATIBILITY.md) and [acceptance scope](docs/public/acceptance.md).
 
 Time ranges are references, not promises or confidence intervals. Startup values are engineering priors. The release report separates chronological replay from actual process overhead. Online full-Goal error distributions and controlled provider comparisons are not established. Exact native running-line placement has no verified public seat; the entry is beside Tokens.
 

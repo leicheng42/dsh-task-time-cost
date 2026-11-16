@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { compactTokens, compactTokenRange, costSummary, costUnconfigured, formatDecimal, formatDuration, formatDurationRange, formatEta, formatLatency, formatMoneyCompact, formatMoneyList, formatMoneyRanges, formatNumber, formatProfileMetrics, formatState, formatTokenRange, isWideEta, localTiming, remainingSummary } from '../../src/client/format.ts';
+import { clockRange, compactTokens, compactTokenRange, costSummary, costUnconfigured, formatClock, formatDecimal, formatDuration, formatDurationRange, formatEta, formatLatency, formatMoneyCompact, formatMoneyList, formatMoneyRanges, formatNumber, formatProfileMetrics, formatState, formatTokenRange, isAssessing, isWideEta, localTiming, remainingCostRanges, remainingSummary } from '../../src/client/format.ts';
 import { en, zh } from '../../src/client/locale.ts';
 import type { ProfileSummary } from '../../src/shared/wire.ts';
 import { parseConfiguration } from '../../src/client/config.ts';
@@ -48,6 +48,34 @@ test('summary money stays glanceable while the exact amount remains available', 
   assert.equal(formatMoneyCompact({ currency: 'USD', amount: '1.005' }, 'en', t), 'USD 1.01');
   assert.equal(formatDecimal('0.2373384', 'en'), '0.2373384', 'the exact decimal string is unchanged');
   assert.equal(formatMoneyCompact({ currency: 'USD', amount: 'unknown' }, 'en', t), 'Unknown');
+});
+
+test('a completion clock turns a remaining range into a plan-able time', () => {
+  const now = new Date(2026, 10, 16, 21, 50, 0).getTime();
+  assert.equal(clockRange({ low: 8 * 60_000, high: 8 * 60_000 }, now, 'en', t), '21:58', 'both bounds in the same minute collapse to one clock');
+  assert.equal(clockRange({ low: 5 * 60_000, high: 15 * 60_000 }, now, 'en', t), '21:55–22:05', 'a wider range keeps both ends');
+  assert.equal(clockRange(null, now, 'en', t), null, 'no range means no completion clock');
+  const tomorrow = new Date(2026, 10, 17, 0, 30, 0).getTime();
+  assert.match(formatClock(tomorrow, 'en', now, t), /11\/17/, 'another day keeps its date so 00:30 is unambiguous');
+  assert.equal(formatClock(now, 'en', now, t), '21:50');
+  assert.equal(formatClock(null, 'en', now, t), '—');
+});
+
+test('remaining cost subtracts known spending from a complete forecast', () => {
+  const base = snapshot({ observedCostStatus: 'complete', forecastCostStatus: 'reference', knownCost: [{ currency: 'USD', amount: '0.2373384' }],
+    estimatedTotalCost: [{ currency: 'USD', range: { low: '0.30', high: '0.50' } }] });
+  assert.deepEqual(remainingCostRanges(base), [{ currency: 'USD', range: { low: '0.0626616', high: '0.2626616' } }], 'decimal precision survives the subtraction');
+  assert.equal(remainingCostRanges(snapshot({ observedCostStatus: 'partial' })), null, 'partial spending has no honest remainder');
+  assert.equal(remainingCostRanges(snapshot({ forecastCostStatus: 'partial' })), null, 'a partial forecast has no honest remainder');
+  assert.equal(remainingCostRanges(snapshot({ estimatedTotalCost: null })), null);
+  assert.deepEqual(remainingCostRanges(snapshot({ observedCostStatus: 'complete', forecastCostStatus: 'free', estimatedTotalCost: [{ currency: 'USD', range: { low: '0', high: '0' } }] })), [{ currency: 'USD', range: { low: '0', high: '0' } }], 'a free forecast leaves nothing to spend');
+});
+
+test('a task with no plan and no local sample is described as still being assessed', () => {
+  assert.equal(isAssessing(snapshot({ calls: { completed: 1, active: 0, failed: 0, expected: { low: 1, high: 1 } } })), true, 'template-only start');
+  assert.equal(isAssessing(snapshot({ reasons: ['ai-workload-plan-reference'], calls: { completed: 1, active: 0, failed: 0, expected: { low: 1, high: 1 } } })), false, 'an AI plan is a real basis');
+  assert.equal(isAssessing(snapshot({ localPerformanceSamples: 3 })), false, 'local measurements are a real basis');
+  assert.equal(isAssessing(snapshot({ state: 'completed' })), false, 'a finished turn is not assessing');
 });
 
 test('different currencies stay separate and absent values remain unknown', () => {

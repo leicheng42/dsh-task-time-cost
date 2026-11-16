@@ -166,6 +166,100 @@ export function formatMoneyList(values: readonly Money[] | null | undefined, loc
   return values.map((value) => formatMoney(value, locale, t)).join(t('listSeparator'));
 }
 
+/** Decimal string arithmetic for money ranges; values never pass through Number. */
+function scaledDecimal(amount: string, scale: number): bigint | null {
+  const match = /^(\d+)(?:\.(\d+))?$/.exec(amount);
+  if (!match) return null;
+  const fraction = (match[2] ?? '').slice(0, scale).padEnd(scale, '0');
+  return BigInt(match[1] + fraction);
+}
+function decimalFromScaled(value: bigint, scale: number): string {
+  const padded = value.toString().padStart(scale + 1, '0');
+  const integer = padded.slice(0, padded.length - scale);
+  const fraction = padded.slice(padded.length - scale).replace(/0+$/, '');
+  return fraction ? `${integer}.${fraction}` : integer;
+}
+const MONEY_SCALE = 9;
+
+/**
+ * Spending that is still ahead: the forecast total minus what is already known.
+ * Only reported when both sides describe the same currency and the forecast is
+ * complete; otherwise the answer is unknown rather than zero.
+ */
+export function remainingCostRanges(snapshot: EstimateSnapshot): MoneyRange[] | null {
+  const total = snapshot.estimatedTotalCost;
+  if (!total?.length || !snapshot.knownCost.length) return null;
+  if (snapshot.observedCostStatus !== 'complete') return null;
+  if (snapshot.forecastCostStatus === 'free') return total.map(entry => ({ currency: entry.currency, range: { low: '0', high: '0' } }));
+  // A reference forecast is a complete projection; partial/unavailable ones are not.
+  if (snapshot.forecastCostStatus !== 'reference') return null;
+  const remaining: MoneyRange[] = [];
+  for (const entry of total) {
+    const used = snapshot.knownCost.filter(value => value.currency === entry.currency);
+    if (!used.length) return null;
+    const usedTotal = used.reduce((sum, value) => sum + (scaledDecimal(value.amount, MONEY_SCALE) ?? 0n), 0n);
+    const low = scaledDecimal(entry.range.low, MONEY_SCALE);
+    const high = scaledDecimal(entry.range.high, MONEY_SCALE);
+    if (low === null || high === null) return null;
+    const remainingLow = low - usedTotal;
+    const remainingHigh = high - usedTotal;
+    // A stale forecast that already undershoots the known amount is not a
+    // negative remainder; treat it as an exhausted forecast.
+    if (remainingHigh < 0n || remainingLow > remainingHigh) return null;
+    remaining.push({ currency: entry.currency, range: {
+      low: decimalFromScaled(remainingLow < 0n ? 0n : remainingLow, MONEY_SCALE),
+      high: decimalFromScaled(remainingHigh, MONEY_SCALE),
+    } });
+  }
+  return remaining;
+}
+
+export function formatMoneyRangesCompact(values: readonly MoneyRange[] | null | undefined, locale: string, t: Translate): string {
+  if (!values?.length) return t('dash');
+  return values.map((value) => {
+    const low = compactDecimal(value.range.low, locale);
+    const high = compactDecimal(value.range.high, locale);
+    if (low === null || high === null || !value.currency) return t('dash');
+    return low === high ? t('money', { currency: value.currency, value: low }) : t('moneyRange', { currency: value.currency, low, high });
+  }).join(t('listSeparator'));
+}
+
+function clockFormatter(locale: string, withDay: boolean): Intl.DateTimeFormat {
+  return new Intl.DateTimeFormat(numberLocale(locale), withDay
+    ? { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }
+    : { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+/** Local wall-clock label; another day keeps its date so "03:10" is never ambiguous. */
+export function formatClock(time: number | null | undefined, locale: string, now: number, t: Translate): string {
+  if (time == null || !Number.isFinite(time) || time <= 0) return t('dash');
+  const target = new Date(time), current = new Date(now);
+  const sameDay = target.getFullYear() === current.getFullYear() && target.getMonth() === current.getMonth() && target.getDate() === current.getDate();
+  return clockFormatter(locale, !sameDay).format(time);
+}
+
+/** Completion clock for a remaining range; both bounds when they fall in different minutes. */
+export function clockRange(range: Span | null | undefined, now: number, locale: string, t: Translate): string | null {
+  if (!validSpan(range)) return null;
+  const low = formatClock(now + range.low, locale, now, t);
+  const high = formatClock(now + range.high, locale, now, t);
+  if (low === t('dash') || high === t('dash')) return null;
+  return low === high ? low : t('clockSpan', { low, high });
+}
+
+/**
+ * The estimate has no observation to stand on until the executing agent has
+ * produced a plan or a local sample. Before that, a number would be a guess, so
+ * the panel says it is still assessing instead of printing one.
+ */
+export function isAssessing(snapshot: EstimateSnapshot): boolean {
+  if (snapshot.state !== 'running' && snapshot.state !== 'queued') return false;
+  if (snapshot.localPerformanceSamples > 0 || snapshot.workloadSamples > 0) return false;
+  if (snapshot.reasons.includes('ai-workload-plan-reference')) return false;
+  if (snapshot.reasons.includes('continuation-local-task-history')) return false;
+  return snapshot.calls.completed <= 1;
+}
+
 export function formatMoneyRanges(values: readonly MoneyRange[] | null | undefined, locale: string, t: Translate): string {
   if (!values?.length) return t('unknown');
   return values.map((value) => {

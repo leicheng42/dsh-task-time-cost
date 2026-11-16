@@ -1,5 +1,13 @@
 # Changelog / 发行说明
 
+## 0.3.2 — one shape for time, Tokens and cost
+
+- Answer the planning question first: the panel states the remaining time, the expected completion clock and the elapsed time, and the composer entry repeats the clock (`约 1m · 22:15`).
+- Replace the metric cards with one table: rows are time, Tokens and cost, columns are spent / left / forecast total. Spent is a fact, left and total are forecasts, and an unknown value prints a dash instead of zero.
+- Derive the remaining cost only when spending is complete and the forecast is complete; otherwise the cell stays unknown. Displayed amounts are rounded, the ledger keeps every decimal.
+- Do not print a number before there is a basis: a task with no executing-agent plan and no local sample shows "assessing the task" instead of a reference prior. The system prompt now asks for the plan before the first substantive reply.
+- A retained stale reference no longer prints an old total beside a much larger elapsed time.
+
 ## 0.3.1 — compatibility update
 
 - Redesign the summary dialog around one question: a large central remaining time, a gauge showing the full reference range with both bounds, then compact cards for elapsed time, total, Tokens and cost. Unknown rows are dropped, a repeated range is merged, and the former stack of explanatory paragraphs becomes one line; exact amounts and full evidence stay in details. Summary cost is rounded to a readable amount while the ledger keeps every decimal.
