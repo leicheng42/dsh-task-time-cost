@@ -244,7 +244,25 @@ export function clockRange(range: Span | null | undefined, now: number, locale: 
   const low = formatClock(now + range.low, locale, now, t);
   const high = formatClock(now + range.high, locale, now, t);
   if (low === t('dash') || high === t('dash')) return null;
-  return low === high ? low : t('clockSpan', { low, high });
+  if (low === high) return low;
+  // Another day is printed once for both bounds instead of twice.
+  const day = /^(\d+\/\d+)([,\s]+)(\d{2}:\d{2})$/.exec(low);
+  if (day) {
+    const prefix = day[1] + day[2];
+    if (high.startsWith(prefix)) return t('clockDaySpan', { day: day[1], low: day[3], high: high.slice(prefix.length) });
+  }
+  return t('clockSpan', { low, high });
+}
+
+/**
+ * Fraction of a dimension already spent, using the upper bound of what is left
+ * so the bar never overstates progress. Unknown inputs stay null (a dashed bar),
+ * never zero.
+ */
+export function progressShare(used: number | null | undefined, remainingHigh: number | null | undefined): number | null {
+  if (used == null || remainingHigh == null || !Number.isFinite(used) || !Number.isFinite(remainingHigh)) return null;
+  if (used < 0 || remainingHigh < 0 || used + remainingHigh <= 0) return null;
+  return Math.min(1, Math.max(0, used / (used + remainingHigh)));
 }
 
 /**

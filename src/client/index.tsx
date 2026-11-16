@@ -4,7 +4,7 @@ import type { Context } from '@deepseek-ai/cordis';
 import type { ChatSnapshot, TurnTailChatData } from '@deepseek-ai/dsh-client-ui-chat/client';
 import type { EstimatorRemote } from '../shared/wire.ts';
 import { EstimateDetails } from './details.tsx';
-import { clockRange, compactTokens, compactTokenRange, costUnconfigured, formatClock, formatDuration, formatEta, formatEtaPoint, formatMoneyCompact, formatMoneyRangesCompact, isAssessing, isTerminal, localTiming, remainingCostRanges, validSpan } from './format.ts';
+import { clockRange, compactTokens, compactTokenRange, costUnconfigured, formatClock, formatDuration, formatEta, formatEtaPoint, formatMoneyCompact, formatMoneyRangesCompact, isAssessing, isTerminal, localTiming, progressShare, remainingCostRanges, validSpan } from './format.ts';
 import { en, zh, LOCALE_NAMESPACE } from './locale.ts';
 import type { Translate } from './locale.ts';
 import { Management } from './management.tsx';
@@ -152,17 +152,24 @@ export function applyClient(ctx: Context): void {
       : active ? t('computingShort') : t('titleShort');
     const unconfigured = !!snapshot && costUnconfigured(snapshot);
     const referencePrice = snapshot?.reasons.includes('public-reference-price-not-provider-bill') ?? false;
-    // The picture, not a table: one band from the low to the high bound with a
-    // marker at the central reference, so the width of the uncertainty is read
-    // before any number is parsed.
-    const meter = (() => {
+    // A real timeline: the bar spans from task start to the latest predicted
+    // finish, so "we are here" is a position rather than a range between two
+    // numbers. The unspent part keeps its uncertainty as a lighter band.
+    const timeline = (() => {
       if (terminal || !validSpan(displayedRemaining)) return null;
+      const spent = timing?.activeMs ?? snapshot?.elapsedActiveMs ?? 0;
+      const end = spent + displayedRemaining.high;
+      if (!(end > 0)) return null;
+      const pct = (value: number) => Math.min(100, Math.max(0, value / end * 100));
       const typical = sessionRemaining !== null ? snapshot?.remainingTypicalMs ?? null : retained?.remainingTypicalMs ?? null;
-      const width = Math.max(displayedRemaining.high - displayedRemaining.low, 1);
-      const position = typical != null && Number.isFinite(typical) ? Math.min(100, Math.max(0, (typical - displayedRemaining.low) / width * 100)) : 50;
-      // A zero lower bound is not worth a "0s" label; the band already starts
-      // at the left edge.
-      return { low: displayedRemaining.low > 0 ? formatDuration(displayedRemaining.low, t) : '', high: formatDuration(displayedRemaining.high, t), position };
+      return {
+        now: pct(spent),
+        bandFrom: pct(spent + displayedRemaining.low),
+        bandTo: pct(end),
+        marker: typical != null && Number.isFinite(typical) ? pct(spent + typical) : null,
+        start: snapshot?.startedAt ? formatClock(snapshot.startedAt, localeSnapshot.active, now, t) : '',
+        finish: formatClock(now + displayedRemaining.high, localeSnapshot.active, now, t),
+      };
     })();
     const partialToken = snapshot?.observedTokenStatus === 'partial';
     const partialCost = !!snapshot && (snapshot.observedCostStatus === 'partial' || snapshot.forecastCostStatus === 'partial');
@@ -183,12 +190,28 @@ export function applyClient(ctx: Context): void {
     // printed next to a much larger elapsed time.
     const timeTotal = retained ? t('dash') : formatEta(totalSpan, t);
     const tokenUsed = snapshot?.observedTokens != null ? compactTokens(snapshot.observedTokens, t) : t('dash');
-    const tokenLeft = compactTokenRange(snapshot?.estimatedRemainingOutputTokens, t);
-    const tokenTotal = compactTokenRange(snapshot?.estimatedTotalTokens, t);
+    const tokenLeft = snapshot?.estimatedRemainingOutputTokens ? compactTokenRange(snapshot.estimatedRemainingOutputTokens, t) : t('dash');
+    const tokenTotal = snapshot?.estimatedTotalTokens ? compactTokenRange(snapshot.estimatedTotalTokens, t) : t('dash');
     const money = snapshot?.knownCost.length ? snapshot.knownCost.map(value => formatMoneyCompact(value, localeSnapshot.active, t)).join(t('listSeparator')) : null;
     const costUsed = unconfigured ? t('dash') : snapshot?.observedCostStatus === 'free' ? t('free') : money ?? t('dash');
     const costLeft = snapshot ? formatMoneyRangesCompact(remainingCostRanges(snapshot), localeSnapshot.active, t) : t('dash');
     const costTotal = snapshot ? formatMoneyRangesCompact(snapshot.estimatedTotalCost, localeSnapshot.active, t) : t('dash');
+    // Each dimension gets the same bar: the filled part is what has already been
+    // spent, so "how far in are we" is read without arithmetic.
+    const numericMoney = (amounts: readonly { amount: string }[] | null | undefined): number | null => {
+      if (!amounts?.length) return null;
+      const sum = amounts.reduce((total, value) => total + (Number(value.amount) || 0), 0);
+      return Number.isFinite(sum) ? sum : null;
+    };
+    const costRemaining = snapshot ? remainingCostRanges(snapshot) : null;
+    const metrics = [
+      { key: 'time', label: t('rowTime'), used: elapsed, left: timeLeft, total: timeTotal,
+        fill: terminal ? 1 : progressShare(timing?.activeMs ?? snapshot?.elapsedActiveMs, displayedRemaining?.high) },
+      { key: 'tokens', label: t('rowTokens'), used: tokenUsed, left: terminal ? t('dash') : tokenLeft, total: terminal ? t('dash') : tokenTotal,
+        fill: terminal ? 1 : progressShare(snapshot?.observedTokens, snapshot?.estimatedRemainingOutputTokens?.high) },
+      { key: 'cost', label: t('rowCost'), used: costUsed, left: terminal ? t('dash') : costLeft, total: terminal ? t('dash') : costTotal,
+        fill: terminal ? 1 : progressShare(numericMoney(snapshot?.knownCost), costRemaining?.[0] ? Number(costRemaining[0].range.high) : null) },
+    ];
     // The completion clock is what turns an estimate into a plan: "by when".
     const finishClock = !terminal && validSpan(displayedRemaining) ? clockRange(displayedRemaining, now, localeSnapshot.active, t) : null;
     // The entry line has room for one time, so it prints the central one.
@@ -198,11 +221,11 @@ export function applyClient(ctx: Context): void {
     const doneClock = terminal && snapshot?.endedAt ? formatClock(snapshot.endedAt, localeSnapshot.active, now, t) : null;
     // One short line replaces the former stack of explanatory paragraphs; the
     // complete reasoning stays in the details view.
-    const footnote = unconfigured ? t('unpricedHint') : partialCost ? t('footnoteIncomplete') : assessing ? t('assessingHint') : !terminal && !meter && !retained ? t('footnoteReassessing') : referencePrice ? t('footnotePrice') : terminal ? null : t('footnoteRange');
+    const footnote = unconfigured ? t('unpricedHint') : partialCost ? t('footnoteIncomplete') : assessing ? t('assessingHint') : !terminal && !displayedRemaining && !retained ? t('footnoteReassessing') : referencePrice ? t('footnotePrice') : terminal ? null : t('footnoteRange');
     // Without a remaining range the useful fact is what has already been spent,
     // so the hero never prints a bare "unknown".
-    const heroValue = terminal || !meter ? elapsed : eta;
-    const heroCaption = t(terminal || !meter ? 'heroElapsed' : 'heroRemaining');
+    const heroValue = terminal || !displayedRemaining ? elapsed : eta;
+    const heroCaption = t(terminal || !displayedRemaining ? 'heroElapsed' : 'heroRemaining');
     const lineWithClock = finishPoint && !tail && !terminal ? t('etaWithClock', { value: line, clock: finishPoint }) : line;
     return <div className="dte" data-slot={tail ? 'assistant-actions' : 'composer-dock'}>
       <style>{styles}</style>
@@ -230,44 +253,32 @@ export function applyClient(ctx: Context): void {
         </div>
         {finishClock && <p className="dte-finish">{t('finishAt', { time: finishClock })}</p>}
         {doneClock && <p className="dte-finish">{t('finishedAt', { time: doneClock })}</p>}
-        {meter && <div className="dte-meter" role="img" aria-label={range}>
-          <div className="dte-meter-track" aria-hidden="true">
-            <span className="dte-meter-band" />
-            <span className="dte-meter-dot" style={{ left: `${meter.position}%` }} />
+        {timeline && <div className="dte-timeline" role="img" aria-label={`${elapsed} → ${range}`}>
+          <div className="dte-timeline-track" aria-hidden="true">
+            <span className="dte-timeline-done" style={{ width: `${timeline.now}%` }} />
+            <span className="dte-timeline-band" style={{ left: `${timeline.bandFrom}%`, width: `${Math.max(1, timeline.bandTo - timeline.bandFrom)}%` }} />
+            {timeline.marker != null && <span className="dte-timeline-dot" style={{ left: `${timeline.marker}%` }} />}
+            <span className="dte-timeline-now" style={{ left: `${timeline.now}%` }} />
           </div>
-          <div className="dte-meter-labels" aria-hidden="true"><span>{meter.low}</span><span>{meter.high}</span></div>
+          <div className="dte-timeline-labels" aria-hidden="true"><span>{timeline.start}</span><span>{timeline.finish}</span></div>
         </div>}
         {retained && <p className="dte-status-line">{t('retainedForecastHint', { time: new Date(retained.updatedAt).toLocaleTimeString(localeSnapshot.active, { hour: '2-digit', minute: '2-digit' }) })}</p>}
-        {snapshot && <table className="dte-matrix">
-          <thead>
-            <tr>
-              <th scope="col" className="dte-matrix-corner"><span className="dte-visually-hidden">{t('titleShort')}</span></th>
-              <th scope="col">{t('colUsed')}</th>
-              {!terminal && <th scope="col">{t('colLeft')}</th>}
-              {!terminal && <th scope="col">{t('colTotal')}</th>}
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <th scope="row">{t('rowTime')}</th>
-              <td data-label={t('colUsed')}>{elapsed}</td>
-              {!terminal && <td data-label={t('colLeft')}>{timeLeft}</td>}
-              {!terminal && <td data-label={t('colTotal')}>{timeTotal === t('unknown') ? t('dash') : timeTotal}</td>}
-            </tr>
-            <tr>
-              <th scope="row">{t('rowTokens')}</th>
-              <td data-label={t('colUsed')}>{tokenUsed}{partialToken && <span className="dte-tag">{t('partialTag')}</span>}</td>
-              {!terminal && <td data-label={t('colLeft')}>{tokenLeft === t('unknown') ? t('dash') : tokenLeft}</td>}
-              {!terminal && <td data-label={t('colTotal')}>{tokenTotal === t('unknown') ? t('dash') : tokenTotal}</td>}
-            </tr>
-            <tr>
-              <th scope="row">{t('rowCost')}</th>
-              <td data-label={t('colUsed')}>{costUsed}{partialCost && <span className="dte-tag">{t('partialTag')}</span>}</td>
-              {!terminal && <td data-label={t('colLeft')}>{costLeft}</td>}
-              {!terminal && <td data-label={t('colTotal')}>{costTotal}</td>}
-            </tr>
-          </tbody>
-        </table>}
+        {snapshot && <div className="dte-metrics">
+          {metrics.map(metric => <div className="dte-metric" key={metric.key}>
+            <div className="dte-metric-head">
+              <span className="dte-metric-label">{metric.label}</span>
+              {metric.fill != null && !terminal && <span className="dte-metric-share dte-tabular">{Math.round(metric.fill * 100)}%</span>}
+            </div>
+            <div className={metric.fill == null ? 'dte-bar dte-bar-unknown' : 'dte-bar'} aria-hidden="true">
+              {metric.fill != null && <span className="dte-bar-fill" style={{ width: `${Math.max(2, Math.round(metric.fill * 100))}%` }} />}
+            </div>
+            <dl className="dte-metric-values">
+              <div><dt>{t('colUsed')}</dt><dd>{metric.used}{metric.key === 'tokens' && partialToken && <span className="dte-tag">{t('partialTag')}</span>}{metric.key === 'cost' && partialCost && <span className="dte-tag">{t('partialTag')}</span>}</dd></div>
+              {!terminal && <div><dt>{t('colLeft')}</dt><dd>{metric.left}</dd></div>}
+              {!terminal && metric.total !== metric.left && <div><dt>{t('colTotal')}</dt><dd>{metric.total}</dd></div>}
+            </dl>
+          </div>)}
+        </div>}
         {footnote && <p className="dte-footnote">{footnote}</p>}
         {state.error && <p className="dte-error dte-small" role="alert">{errorText(state.error, t)}</p>}
         <div id={`${id}-more`} className="dte-pop-actions" hidden={view === 'summary'}>

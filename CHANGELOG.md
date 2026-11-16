@@ -1,5 +1,12 @@
 # Changelog / 发行说明
 
+## 0.3.3 — timeline and per-dimension progress
+
+- Replace the range gauge with a real timeline: the bar runs from the task start to the latest predicted finish, fills the elapsed part, keeps the unspent uncertainty as a lighter band, and marks the central estimate.
+- Give each dimension the same progress bar (spent against spent plus the upper remaining bound) with the share printed beside it; an unknown remainder is drawn as a dashed track rather than an empty or full bar.
+- Print the shared date once in a completion range that crosses midnight, and stop repeating a forecast total that is identical to the remaining value.
+- Tests and the release report keep the earlier scope split: only what was re-observed on this version is marked passed.
+
 ## 0.3.2 — one shape for time, Tokens and cost
 
 - Answer the planning question first: the panel states the remaining time, the expected completion clock and the elapsed time, and the composer entry repeats the clock (`约 1m · 22:15`).

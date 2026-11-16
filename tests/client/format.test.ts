@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { clockRange, compactTokens, compactTokenRange, costSummary, costUnconfigured, formatClock, formatDecimal, formatDuration, formatDurationRange, formatEta, formatLatency, formatMoneyCompact, formatMoneyList, formatMoneyRanges, formatNumber, formatProfileMetrics, formatState, formatTokenRange, isAssessing, isWideEta, localTiming, remainingCostRanges, remainingSummary } from '../../src/client/format.ts';
+import { clockRange, compactTokens, compactTokenRange, costSummary, costUnconfigured, formatClock, formatDecimal, formatDuration, formatDurationRange, formatEta, formatLatency, formatMoneyCompact, formatMoneyList, formatMoneyRanges, formatNumber, formatProfileMetrics, formatState, formatTokenRange, isAssessing, isWideEta, localTiming, progressShare, remainingCostRanges, remainingSummary } from '../../src/client/format.ts';
 import { en, zh } from '../../src/client/locale.ts';
 import type { ProfileSummary } from '../../src/shared/wire.ts';
 import { parseConfiguration } from '../../src/client/config.ts';
@@ -59,6 +59,8 @@ test('a completion clock turns a remaining range into a plan-able time', () => {
   assert.match(formatClock(tomorrow, 'en', now, t), /11\/17/, 'another day keeps its date so 00:30 is unambiguous');
   assert.equal(formatClock(now, 'en', now, t), '21:50');
   assert.equal(formatClock(null, 'en', now, t), '—');
+  const late = new Date(2026, 10, 17, 6, 43, 0).getTime();
+  assert.equal(clockRange({ low: 3 * 3_600_000, high: 12 * 3_600_000 }, now, 'en', t), '11/17 00:50–09:50', 'one shared date is printed once');
 });
 
 test('remaining cost subtracts known spending from a complete forecast', () => {
@@ -76,6 +78,16 @@ test('a task with no plan and no local sample is described as still being assess
   assert.equal(isAssessing(snapshot({ reasons: ['ai-workload-plan-reference'], calls: { completed: 1, active: 0, failed: 0, expected: { low: 1, high: 1 } } })), false, 'an AI plan is a real basis');
   assert.equal(isAssessing(snapshot({ localPerformanceSamples: 3 })), false, 'local measurements are a real basis');
   assert.equal(isAssessing(snapshot({ state: 'completed' })), false, 'a finished turn is not assessing');
+});
+
+test('a progress bar uses the upper bound of what is left and stays unknown otherwise', () => {
+  assert.equal(progressShare(30_000, 10_000), 0.75, 'spent against spent plus the upper remaining bound');
+  assert.equal(progressShare(0, 10_000), 0, 'nothing spent yet');
+  assert.equal(progressShare(5, 0), 1, 'nothing left means complete');
+  assert.equal(progressShare(null, 10), null, 'unknown spent is not zero');
+  assert.equal(progressShare(10, null), null, 'unknown remaining is not zero');
+  assert.equal(progressShare(-1, 10), null, 'negative input is refused');
+  assert.equal(progressShare(2, 3), 0.4);
 });
 
 test('different currencies stay separate and absent values remain unknown', () => {
