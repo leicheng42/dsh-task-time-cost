@@ -38,3 +38,31 @@ export function parseEstimatorPlan(raw: string): AiPlanInput | null {
   const parsed = aiPlanSchema.safeParse(value);
   return parsed.success ? parsed.data : null;
 }
+
+export interface EstimatorRoute {
+  provider: string;
+  model: string;
+  source: 'override' | 'session-route';
+}
+
+/**
+ * The user should not have to name a provider: an empty override follows the
+ * route the session already uses, which is also the only model that already
+ * received this task text. An explicit override wins when both halves are set.
+ */
+export function resolveEstimatorRoute(
+  providers: ReadonlyArray<{ id: string }>, session: { providerId: string | null; modelId: string | null },
+  override: { provider: string; model: string },
+): EstimatorRoute | null {
+  const wantedProvider = override.provider.trim();
+  const wantedModel = override.model.trim();
+  if (wantedProvider && wantedModel) return { provider: wantedProvider, model: wantedModel, source: 'override' };
+  const providerId = session.providerId?.trim() ?? '';
+  const modelId = session.modelId?.trim() ?? '';
+  if (!modelId) return null;
+  if (!providerId) return providers.length === 1 ? { provider: providers[0]!.id, model: modelId, source: 'session-route' } : null;
+  const exact = providers.find(candidate => candidate.id === providerId);
+  const loose = exact ?? providers.find(candidate => candidate.id.toLowerCase() === providerId.toLowerCase())
+    ?? providers.find(candidate => candidate.id.toLowerCase().startsWith(providerId.toLowerCase()) || providerId.toLowerCase().startsWith(candidate.id.toLowerCase()));
+  return loose ? { provider: loose.id, model: modelId, source: 'session-route' } : null;
+}

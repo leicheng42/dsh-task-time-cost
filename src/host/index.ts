@@ -225,7 +225,8 @@ export async function apply(ctx: Context, rawConfig: unknown): Promise<void> {
         const task = state.tasks[String(turn)];
         // The executing agent's own plan wins; never call the model when one exists.
         if (!task || task.aiPlan || task.calls.length < 1) return;
-        const plan = await requestEstimatorPlan(ctx, config.estimatorModel, text);
+        const plan = await requestEstimatorPlan(ctx, config.estimatorModel,
+          { providerId: task.route?.providerId ?? null, modelId: task.route?.modelId ?? null }, text);
         if (plan) engine.setEstimatorPlan(session.id, turn, plan);
       })().catch(() => undefined);
     }, config.estimatorModel.delayMs);

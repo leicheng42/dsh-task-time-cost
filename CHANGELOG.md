@@ -1,5 +1,12 @@
 # Changelog / 发行说明
 
+## 0.3.5 — the model estimate is the default and needs no configuration
+
+- Default `estimatorModel` to on and resolve the route from the session itself: with empty provider/model the call reuses the provider and model the session already uses, so no new recipient sees the task text and nothing has to be filled in.
+- Keep an explicit provider/model override available (both or neither); a half-filled override is refused at save and falls back to the session route at runtime.
+- Move the estimator switch out of the collapsed advanced section to the top of the settings form, with the default-on notice and the "leave both empty to follow this session" hint.
+- A config saved before the field existed renders as enabled, matching the Host default instead of showing an unchecked box for an active feature.
+
 ## 0.3.4 — optional independent estimator model
 
 - Add an opt-in estimator model: with it enabled, a task that has no executing-agent plan after the configured wait window sends one bounded request to the provider/model you name and turns the reply into the same numeric plan.

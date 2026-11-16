@@ -2,7 +2,7 @@
 
 The plugin keeps task/route, timing, counters, reported usage, price resolution and estimation metadata in its own local storage domain. Prompt text may be transiently classified or counted on Host; prompts, code bodies, tool arguments and credentials are not stored in plugin statistics. Client does not read conversation bodies.
 
-默认不上传统计、不额外调用估价模型、不自动联网更新。**独立估时模型默认关闭**；开启并指定 provider/模型后，任务描述会在一次请求中发送给该模型（本地不保存），其余统计仍不上传。执行 AI 可以用本次任务中的工具提交有界数字计划。公共价目录随包提供；维护脚本的手动联网更新与插件正常运行分开。
+默认不上传统计、不额外调用估价模型、不自动联网更新。**模型预估默认开启**，但默认复用当前会话已在用的 provider/模型路由，因此不新增任何接收方；任务描述只用于该次请求、本地不保存。可在设置里一键关闭，或指定其它 provider/模型覆盖。执行 AI 可以用本次任务中的工具提交有界数字计划。公共价目录随包提供；维护脚本的手动联网更新与插件正常运行分开。
 
 Configuration can contain provider/model identities, stable route fingerprints and custom rates. Do not put secrets in identity/source fields. A full export includes configuration, session/turn identities, history and calibration; it is **not anonymous**. Review and redact before sharing. Raw exports and conversation captures are excluded from the runtime package.
 

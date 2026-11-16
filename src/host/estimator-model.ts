@@ -1,6 +1,6 @@
 import type { Context } from '@deepseek-ai/cordis';
 import type {} from '@deepseek-ai/dsh-llm';
-import { ESTIMATOR_REPLY_LIMIT, buildEstimatorPrompt, parseEstimatorPlan } from '../shared/estimator-model.ts';
+import { ESTIMATOR_REPLY_LIMIT, buildEstimatorPrompt, parseEstimatorPlan, resolveEstimatorRoute } from '../shared/estimator-model.ts';
 import type { AiPlanInput } from '../shared/ai-plan.ts';
 
 /** Declare the auxiliary purpose so adapters can label this call as non-conversation. */
@@ -16,6 +16,7 @@ export interface EstimatorModelSettings {
 }
 
 interface StreamService {
+  listProviders(): Array<{ id: string; name: string }>;
   stream(options: {
     provider: string;
     model: string;
@@ -34,12 +35,16 @@ interface StreamService {
  * reply — resolves to null so the caller keeps its template forecast.
  */
 export async function requestEstimatorPlan(
-  ctx: Context, settings: EstimatorModelSettings, taskText: string, parent?: AbortSignal,
+  ctx: Context, settings: EstimatorModelSettings, sessionRoute: { providerId: string | null; modelId: string | null },
+  taskText: string, parent?: AbortSignal,
 ): Promise<AiPlanInput | null> {
-  if (!settings.provider.trim() || !settings.model.trim()) return null;
   if (!taskText.trim()) return null;
   const llm = ctx.get('llm') as StreamService | undefined;
   if (!llm || typeof llm.stream !== 'function') return null;
+  let providers: Array<{ id: string }> = [];
+  try { providers = typeof llm.listProviders === 'function' ? llm.listProviders() : []; } catch { providers = []; }
+  const route = resolveEstimatorRoute(providers, sessionRoute, { provider: settings.provider, model: settings.model });
+  if (!route) return null;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), Math.max(1_000, settings.timeoutMs));
   const forward = () => controller.abort();
@@ -47,7 +52,7 @@ export async function requestEstimatorPlan(
   let text = '';
   try {
     const stream = llm.stream({
-      provider: settings.provider, model: settings.model, purpose: 'task-estimate',
+      provider: route.provider, model: route.model, purpose: 'task-estimate',
       messages: [{ role: 'user', content: [{ type: 'text', text: buildEstimatorPrompt(taskText) }] }],
       signal: controller.signal, maxTokens: 400, temperature: 0,
     });

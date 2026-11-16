@@ -21,7 +21,7 @@ export interface RouteOverride {
   forecastReasoningTokens: Span | null;
 }
 export interface EstimatorModelConfig {
-  /** Off by default: enabling sends the task text to a second model. */
+  /** On by default: it reuses the session route, so no new recipient sees the text. */
   enabled: boolean;
   provider: string;
   model: string;
@@ -74,13 +74,13 @@ export function validatePluginConfig(raw: unknown): PluginConfig {
     for (const pattern of [...rule.patterns, ...(rule.excludePatterns ?? [])]) { if (typeof pattern !== 'string' || pattern.length > 1000) throw new TypeError('Invalid classification pattern'); new RegExp(pattern, 'iu'); }
   }
   const model = z.object({
-    enabled: z.boolean().default(false),
+    enabled: z.boolean().default(true),
     provider: z.string().max(120).default(''),
     model: z.string().max(160).default(''),
     timeoutMs: z.number().int().min(1_000).max(120_000).default(20_000),
     delayMs: z.number().int().min(0).max(120_000).default(8_000),
   }).strict().parse(estimatorModel);
-  if (model.enabled && (!model.provider.trim() || !model.model.trim())) throw new TypeError('An enabled estimator model needs an explicit provider and model');
+  if (Boolean(model.provider.trim()) !== Boolean(model.model.trim())) throw new TypeError('An estimator override needs both a provider and a model, or leave both empty to follow the session route');
   return { ...validated, estimatorModel: model, prices:  structuredClone(prices) as PriceEntry[], usePublicPriceCatalog, sameAs: structuredClone(sameAs) as SameAs[], routeOverrides: routes,
     workloadTemplates: structuredClone(workloadTemplates) as WorkloadTemplate[], classificationRules: structuredClone(classificationRules) as ClassificationRule[] };
 }
@@ -101,10 +101,10 @@ configFields.routeOverrides = Schema.dict(Schema.any()).default({}).description(
 configFields.workloadTemplates = Schema.array(Schema.any()).default([...DEFAULT_TEMPLATES]).description('Versioned workload assumptions for each task type.');
 configFields.classificationRules = Schema.array(Schema.any()).default([...DEFAULT_CLASSIFICATION_RULES]).description('Ordered local task classification rules.');
 configFields.estimatorModel = Schema.object({
-  enabled: Schema.boolean().default(false).description('Off by default. When on, the task text is sent to the chosen model to produce the first numeric estimate.'),
-  provider: Schema.string().default('').description('Registered provider route for the estimator call.'),
-  model: Schema.string().default('').description('Model id used for the estimator call.'),
+  enabled: Schema.boolean().default(true).description('On by default. The task text goes to the session route, or to the override below, for one bounded estimate.'),
+  provider: Schema.string().default('').description('Optional override; empty means follow the route the session already uses.'),
+  model: Schema.string().default('').description('Optional override model id; set it together with the provider.'),
   timeoutMs: Schema.number().min(1_000).max(120_000).default(20_000).description('Abort a single estimator call after this long.'),
   delayMs: Schema.number().min(0).max(120_000).default(8_000).description('Wait this long for the executing agent plan before asking the model.'),
-}).default({ enabled: false, provider: '', model: '', timeoutMs: 20_000, delayMs: 8_000 }).description('Optional second-model estimator; disabled unless enabled explicitly.');
+}).default({ enabled: true, provider: '', model: '', timeoutMs: 20_000, delayMs: 8_000 }).description('Optional second-model estimator; disabled unless enabled explicitly.');
 export const Config = Schema.object(configFields).description('Local task time and cost estimates. The optional estimator model is off by default and, when enabled, sends the task text to the chosen model.');
