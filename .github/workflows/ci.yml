@@ -41,6 +41,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
+      # The plugin manager drives pnpm for profile package operations.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
       - uses: actions/download-artifact@v4
         with:
           name: prebuilt-package
