@@ -4,7 +4,7 @@ import type { Context } from '@deepseek-ai/cordis';
 import type { ChatSnapshot, TurnTailChatData } from '@deepseek-ai/dsh-client-ui-chat/client';
 import type { EstimatorRemote } from '../shared/wire.ts';
 import { EstimateDetails } from './details.tsx';
-import { compactTokens, compactTokenRange, costSummary, costUnconfigured, formatDuration, formatEta, formatEtaPoint, isTerminal, isWideEta, localTiming } from './format.ts';
+import { compactTokens, costUnconfigured, formatDuration, formatEta, formatEtaPoint, formatMoneyCompact, isTerminal, localTiming, validSpan } from './format.ts';
 import { en, zh, LOCALE_NAMESPACE } from './locale.ts';
 import type { Translate } from './locale.ts';
 import { Management } from './management.tsx';
@@ -138,15 +138,45 @@ export function applyClient(ctx: Context): void {
     const retained = !tail && sessionRemaining === null && state.lastForecast
       && (!snapshot || state.lastForecast.taskKey === snapshot.taskKey) && (active || !snapshot && targetTurn !== null) ? state.lastForecast : null;
     const displayedRemaining = sessionRemaining ?? retained?.remainingMs;
-    const wide = isWideEta(displayedRemaining);
     const range = formatEta(displayedRemaining, t);
     const eta = formatEtaPoint(displayedRemaining, t, sessionRemaining !== null ? snapshot?.remainingTypicalMs : retained?.remainingTypicalMs);
     // Keep the last time reference while the new plan is unavailable. It is
     // frozen and labelled in the dialog, never used as a current cost budget.
     const initialScope = snapshot?.reasons.includes('scope-engineering-prior') ?? false;
-    const line = tail ? t('doneElapsed', { elapsed }) : (active && sessionRemaining !== null || retained) ? t(retained ? 'etaRetained' : initialScope ? 'etaInitial' : snapshot?.forecastScope === 'whole_goal' ? 'etaGoal' : 'etaEstimate', { value: eta }) : t('titleShort');
+    const line = tail || terminal ? t('doneElapsed', { elapsed }) : (active && sessionRemaining !== null || retained) ? t(retained ? 'etaRetained' : initialScope ? 'etaInitial' : snapshot?.forecastScope === 'whole_goal' ? 'etaGoal' : 'etaEstimate', { value: eta }) : active ? t('computingShort') : t('titleShort');
     const unconfigured = !!snapshot && costUnconfigured(snapshot);
     const referencePrice = snapshot?.reasons.includes('public-reference-price-not-provider-bill') ?? false;
+    // The picture, not a table: one band from the low to the high bound with a
+    // marker at the central reference, so the width of the uncertainty is read
+    // before any number is parsed.
+    const meter = (() => {
+      if (terminal || !validSpan(displayedRemaining)) return null;
+      const typical = sessionRemaining !== null ? snapshot?.remainingTypicalMs ?? null : retained?.remainingTypicalMs ?? null;
+      const width = Math.max(displayedRemaining.high - displayedRemaining.low, 1);
+      const position = typical != null && Number.isFinite(typical) ? Math.min(100, Math.max(0, (typical - displayedRemaining.low) / width * 100)) : 50;
+      // A zero lower bound is not worth a "0s" label; the band already starts
+      // at the left edge.
+      return { low: displayedRemaining.low > 0 ? formatDuration(displayedRemaining.low, t) : '', high: formatDuration(displayedRemaining.high, t), position };
+    })();
+    const money = snapshot?.knownCost.length ? snapshot.knownCost.map(value => formatMoneyCompact(value, localeSnapshot.active, t)).join(t('listSeparator')) : null;
+    const partialToken = snapshot?.observedTokenStatus === 'partial';
+    const partialCost = !!snapshot && (snapshot.observedCostStatus === 'partial' || snapshot.forecastCostStatus === 'partial');
+    // The total repeats the band whenever elapsed time is still negligible at
+    // the printed precision, so only show it once it carries new information.
+    const totalText = formatEta(snapshot?.estimatedTotalMs ?? retained?.estimatedTotalMs, t);
+    // The total repeats the band whenever elapsed time is still negligible at
+    // the printed precision, a finished turn has no future total, and a retained
+    // forecast's total is stale by definition.
+    const showTotal = !terminal && sessionRemaining !== null && totalText !== range && totalText !== t('unknown');
+    const tokenText = snapshot?.observedTokens != null ? compactTokens(snapshot.observedTokens, t) : null;
+    const costText = unconfigured ? null : snapshot?.observedCostStatus === 'free' ? t('free') : money;
+    // One short line replaces the former stack of explanatory paragraphs; the
+    // complete reasoning stays in the details view.
+    const footnote = unconfigured ? t('unpricedHint') : partialCost ? t('footnoteIncomplete') : !terminal && !meter && !retained ? t('footnoteReassessing') : referencePrice ? t('footnotePrice') : terminal ? null : t('footnoteRange');
+    // Without a remaining range the useful fact is what has already been spent,
+    // so the hero never prints a bare "unknown".
+    const heroValue = terminal || !meter ? elapsed : eta;
+    const heroCaption = t(terminal || !meter ? 'heroElapsed' : 'heroRemaining');
     return <div className="dte" data-slot={tail ? 'assistant-actions' : 'composer-dock'}>
       <style>{styles}</style>
       <button type="button" className={tail ? 'dte-line dte-line-tail' : 'dte-line'} aria-haspopup="dialog" aria-expanded={expanded} aria-controls={`${id}-panel`}
@@ -160,28 +190,30 @@ export function applyClient(ctx: Context): void {
         aria-label={t(tail ? 'turnTimeTitle' : 'titleShort')} ref={panel}>
         <div className="dte-pop-head">
           <span className="dte-pop-title"><ClockIcon state={snapshot?.state ?? 'idle'} />{t(tail ? 'turnTimeTitle' : 'titleShort')}</span>
-          <span className="dte-pop-value dte-tabular">{terminal ? elapsed : eta}</span>
           <button type="button" ref={firstAction} className="dte-more" aria-label={t('more')} title={t('more')} aria-expanded={view !== 'summary'} aria-controls={`${id}-more`}
             onClick={() => setView(view === 'summary' ? 'more' : 'summary')}>
             <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="3" cy="8" r="1.2" fill="currentColor" /><circle cx="8" cy="8" r="1.2" fill="currentColor" /><circle cx="13" cy="8" r="1.2" fill="currentColor" /></svg>
           </button>
         </div>
-        <div className="dte-pop-rule" aria-hidden="true" />
-        <dl className="dte-summary">
-          <dt>{t('activeTime')}</dt><dd>{snapshot ? elapsed : t('unknown')}</dd>
-          {!terminal && <><dt>{t('remainingRange')}</dt><dd>{range}</dd></>}
-          <dt>{t('estimatedTotal')}</dt><dd>{formatEta(snapshot?.estimatedTotalMs ?? retained?.estimatedTotalMs, t)}</dd>
-          <dt>{t('tokenTotal')}</dt><dd>{snapshot?.observedTokenStatus === 'partial' ? t('partialKnown', { value: compactTokens(snapshot.observedTokens, t) }) : compactTokens(snapshot?.observedTokens, t)}</dd>
-          {!terminal && <><dt>{t('tokenRemainingOutput')}</dt><dd title={t('tokenRemainingNote')}>{compactTokenRange(snapshot?.estimatedRemainingOutputTokens, t)}</dd>
-            {snapshot?.estimatedTotalTokens != null && <><dt>{t('tokenForecast')}</dt><dd>{compactTokenRange(snapshot.estimatedTotalTokens, t)}</dd></>}</>}
-          <dt>{t(referencePrice ? 'referenceCost' : 'knownCost')}</dt><dd>{unconfigured ? t('unpriced') : snapshot ? costSummary(snapshot, localeSnapshot.active, t) : t('unknown')}</dd>
-        </dl>
-        {initialScope && !terminal && <p className="dte-muted dte-small">{t('initialScopeHint')}</p>}
-        {wide && !terminal && <p className="dte-muted dte-small">{t('wideEtaHint')}</p>}
-        {retained && <p className="dte-muted dte-small">{t('retainedForecastHint', { time: new Date(retained.updatedAt).toLocaleString(localeSnapshot.active) })}</p>}
-        {referencePrice && <p className="dte-muted dte-small">{t('referencePriceHint')}</p>}
-        {unconfigured && <p className="dte-muted dte-small">{t('unpricedHint')}</p>}
-        {!unconfigured && snapshot && (snapshot.observedCostStatus === 'partial' || snapshot.forecastCostStatus === 'partial') && <p className="dte-muted dte-small">{t('incompleteCostDetail')}</p>}
+        <div className="dte-hero">
+          <span className="dte-hero-value dte-tabular">{snapshot ? heroValue : t('unknown')}</span>
+          <span className="dte-hero-caption">{heroCaption}</span>
+        </div>
+        {meter && <div className="dte-meter" role="img" aria-label={range}>
+          <div className="dte-meter-track" aria-hidden="true">
+            <span className="dte-meter-band" />
+            <span className="dte-meter-dot" style={{ left: `${meter.position}%` }} />
+          </div>
+          <div className="dte-meter-labels" aria-hidden="true"><span>{meter.low}</span><span>{meter.high}</span></div>
+        </div>}
+        {retained && <p className="dte-status-line">{t('retainedForecastHint', { time: new Date(retained.updatedAt).toLocaleTimeString(localeSnapshot.active, { hour: '2-digit', minute: '2-digit' }) })}</p>}
+        <div className="dte-cards">
+          {snapshot && !terminal && <div className="dte-card"><span className="dte-card-label">{t('activeTime')}</span><span className="dte-card-value dte-tabular">{elapsed}</span></div>}
+          {showTotal && <div className="dte-card"><span className="dte-card-label">{t('estimatedTotal')}</span><span className="dte-card-value dte-tabular">{totalText}</span></div>}
+          {tokenText && <div className="dte-card"><span className="dte-card-label">{t('tokenTotal')}</span><span className="dte-card-value dte-tabular">{tokenText}{partialToken && <span className="dte-tag">{t('partialTag')}</span>}</span></div>}
+          {costText && <div className="dte-card"><span className="dte-card-label">{t(referencePrice ? 'referenceCost' : 'knownCost')}</span><span className="dte-card-value dte-tabular">{costText}{partialCost && <span className="dte-tag">{t('partialTag')}</span>}</span></div>}
+        </div>
+        {footnote && <p className="dte-footnote">{footnote}</p>}
         {state.error && <p className="dte-error dte-small" role="alert">{errorText(state.error, t)}</p>}
         <div id={`${id}-more`} className="dte-pop-actions" hidden={view === 'summary'}>
           <button type="button" className={view === 'details' ? 'dte-link dte-link-active' : 'dte-link'} aria-pressed={view === 'details'} onClick={() => setView(view === 'details' ? 'more' : 'details')}>{t('details')}</button>

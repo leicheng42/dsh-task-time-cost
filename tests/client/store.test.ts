@@ -68,6 +68,39 @@ test('the first projection arriving after an empty initial response still trigge
   release();
 });
 
+test('a failed first read after a remount retries instead of leaving a blank row', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let calls = 0;
+  const store = new SnapshotStore(remote(async () => {
+    calls++;
+    if (calls === 1) throw new Error('remote service not mounted yet');
+    return view({ state: 'running' });
+  }));
+  t.after(() => store.dispose());
+  const release = store.subscribe('s', 1, () => {});
+  await store.refresh('s', 1);
+  assert.equal(calls, 1);
+  assert.match(store.getSnapshot('s', 1).error?.message ?? '', /not mounted/);
+  t.mock.timers.tick(2_000);
+  await store.refresh('s', 1);
+  assert.equal(calls, 2);
+  assert.equal(store.getSnapshot('s', 1).error, null);
+  assert.equal(store.getSnapshot('s', 1).view?.snapshot?.state, 'running');
+  release();
+});
+
+test('an empty answer also retries a bounded number of times and then stops', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let calls = 0;
+  const store = new SnapshotStore(remote(async () => { calls++; return { ok: true, value: { available: true, error: null, snapshot: null } }; }));
+  t.after(() => store.dispose());
+  const release = store.subscribe('s', null, () => {});
+  await store.refresh('s', null);
+  for (let index = 0; index < 5; index++) { t.mock.timers.tick(2_000); await new Promise(resolve => setImmediate(resolve)); }
+  assert.equal(calls, 3, 'two bounded retries follow the initial empty read, then polling stops');
+  release();
+});
+
 test('only a live task polls at five seconds; waiting and completed states stop polling', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   let calls = 0;

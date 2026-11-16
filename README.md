@@ -6,27 +6,17 @@
 
 [![Stable](https://img.shields.io/github/v/release/leicheng42/dsh-task-time-cost?label=stable)](https://github.com/leicheng42/dsh-task-time-cost/releases) [![CI](https://github.com/leicheng42/dsh-task-time-cost/actions/workflows/ci.yml/badge.svg)](https://github.com/leicheng42/dsh-task-time-cost/actions/workflows/ci.yml) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-<img src="docs/public/screenshots/summary-030.png" width="560" height="348" alt="真实插件浮窗：中心时间预估、完整参考范围、预测 Token 与参考费用" />
+<img src="docs/public/screenshots/summary-031.png" width="420" height="448" alt="真实插件浮窗：中心剩余时间、范围刻度、已用时间、Token 与费用参考" />
 
-<details><summary>深色主题</summary>
-
-<img src="docs/public/screenshots/dark-030.png" width="560" height="374" alt="真实深色主题：完整时间范围与部分已知费用的提示" />
-
-</details>
-
-<details><summary>完成后的本轮用时</summary>
-
-<img src="docs/public/screenshots/completed-030.png" width="560" height="250" alt="自然完成任务的本轮实际用时、Token 和公共参考费用" />
-
-</details>
-
-*Windows / DSH Desktop 0.2.2-rc.2 / 0.3.0 开发期间的真实截图，仅裁剪插件自身区域。数值属于拍摄时的任务，费用为公共目录参考；截图不是准确率基准。*
+*DSH Desktop 0.2.2-rc.2 上的真实浮窗，仅裁剪插件自身区域。中间刻度表示参考区间，圆点是中心预估；数值属于拍摄时的任务，费用为公共目录参考。*
 
 ## 它能帮你做什么
 
 0.3.1 提供以下功能：
 
-- **跨版本与平台**：支持当前 0.2.x API 兼容线，修复 rc.3 安装拒绝；0.3 及以上留待新接口验证。
+- **一眼看到还要多久**：浮窗顶部只放中心时间，下面用一条刻度表示完整区间，端点标出范围；其余信息收进小卡片。
+- **只显示真正有用的信息**：未知的数值不再占一行，重复的范围会合并，说明文字压缩为一行；完整依据和精确金额在「⋯ → 预估详情」里。
+- **跨版本与平台**：支持当前 0.2.x API 兼容线，修复 rc.3 安装拒绝；0.3 及以上留待新接口验证。深色主题、窄窗口与键盘操作沿用宿主的设计变量。
 - **首次也看项目规模**：从普通任务和真实 Goal 目标识别完整工程；多端系统先给项目级「初估」，再由执行模型的整个目标计划修正，避免先按短回复显示几十秒。
 - **估计还要多久**：显示中心时间与完整参考范围；本地可比样本足够时，使用实际工作量分布更新预算。
 - **直接看到预测 Token**：点开就能分别看到已观测 Token、预计剩余输出 Token，以及可确认的预计总 Token；低频详情和设置收进右上角「⋯」。

@@ -2,6 +2,8 @@
 
 ## 0.3.1 — compatibility update
 
+- Redesign the summary dialog around one question: a large central remaining time, a gauge showing the full reference range with both bounds, then compact cards for elapsed time, total, Tokens and cost. Unknown rows are dropped, a repeated range is merged, and the former stack of explanatory paragraphs becomes one line; exact amounts and full evidence stay in details. Summary cost is rounded to a readable amount while the ledger keeps every decimal.
+- Retry a failed or empty first read a few times after a remount, so the row never stays blank, and show the last completed turn's duration instead of a placeholder title.
 - Replace exact rc.2 Host and protocol-peer pins with the reviewed `>=0.2.2-rc.1 <0.3.0-0` API line; exclude older APIs and the next minor, including its prereleases. No version exemptions.
 - Declare Windows, macOS and Linux Hosts; use portable Node/browser facilities and exercise Unicode/space storage paths.
 - Mark the visible custom popover as a macOS window-drag exclusion, following the DSH migration contract.

@@ -130,6 +130,32 @@ export function formatDecimal(amount: string, locale: string): string | null {
   return `${integer}${point}${fraction}`;
 }
 
+/**
+ * A glanceable amount: two decimals above 0.01 and four below, so a summary
+ * card never prints nine digits. The exact decimal string stays in details.
+ * Rounding is string/BigInt based, so large integers never pass through Number.
+ */
+function compactDecimal(amount: string, locale: string): string | null {
+  const match = /^(\d+)(?:\.(\d+))?$/.exec(amount);
+  if (!match) return null;
+  const fraction = match[2] ?? '';
+  const digits = match[1] === '0' && Number('0.' + (fraction.slice(0, 2) || '0')) < 0.01 ? 4 : 2;
+  const kept = fraction.slice(0, digits).padEnd(digits, '0');
+  const roundUp = (fraction[digits] ?? '0') >= '5';
+  const scaled = BigInt(match[1] + kept) + (roundUp ? 1n : 0n);
+  const padded = scaled.toString().padStart(digits + 1, '0');
+  const integer = new Intl.NumberFormat(numberLocale(locale), { maximumFractionDigits: 0 }).format(BigInt(padded.slice(0, padded.length - digits)));
+  const rest = padded.slice(padded.length - digits).replace(/0+$/, '');
+  if (!rest) return integer;
+  const point = new Intl.NumberFormat(numberLocale(locale)).formatToParts(1.1).find((part) => part.type === 'decimal')?.value ?? '.';
+  return `${integer}${point}${rest}`;
+}
+
+export function formatMoneyCompact(value: Money, locale: string, t: Translate): string {
+  const amount = compactDecimal(value.amount, locale);
+  return amount === null || !value.currency ? t('unknown') : t('money', { currency: value.currency, value: amount });
+}
+
 export function formatMoney(value: Money, locale: string, t: Translate): string {
   const amount = formatDecimal(value.amount, locale);
   return amount === null || !value.currency ? t('unknown') : t('money', { currency: value.currency, value: amount });

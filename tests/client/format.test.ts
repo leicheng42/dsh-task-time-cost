@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { compactTokens, compactTokenRange, costSummary, costUnconfigured, formatDecimal, formatDuration, formatDurationRange, formatEta, formatLatency, formatMoneyList, formatMoneyRanges, formatNumber, formatProfileMetrics, formatState, formatTokenRange, isWideEta, localTiming, remainingSummary } from '../../src/client/format.ts';
+import { compactTokens, compactTokenRange, costSummary, costUnconfigured, formatDecimal, formatDuration, formatDurationRange, formatEta, formatLatency, formatMoneyCompact, formatMoneyList, formatMoneyRanges, formatNumber, formatProfileMetrics, formatState, formatTokenRange, isWideEta, localTiming, remainingSummary } from '../../src/client/format.ts';
 import { en, zh } from '../../src/client/locale.ts';
 import type { ProfileSummary } from '../../src/shared/wire.ts';
 import { parseConfiguration } from '../../src/client/config.ts';
@@ -37,6 +37,17 @@ test('decimal cost formatting preserves tiny prices and integers above 2^53', ()
   assert.equal(formatDecimal('1e-8', 'en'), null);
   assert.equal(formatDecimal('-1', 'en'), null);
   assert.equal(formatDecimal('NaN', 'en'), null);
+});
+
+test('summary money stays glanceable while the exact amount remains available', () => {
+  // The dialog card shows a readable amount; details and the ledger keep decimals.
+  assert.equal(formatMoneyCompact({ currency: 'USD', amount: '0.2373384' }, 'en', t), 'USD 0.24');
+  assert.equal(formatMoneyCompact({ currency: 'USD', amount: '20.5058918' }, 'en', t), 'USD 20.51');
+  assert.equal(formatMoneyCompact({ currency: 'CNY', amount: '0.004321' }, 'en', t), 'CNY 0.0043');
+  assert.equal(formatMoneyCompact({ currency: 'USD', amount: '9' }, 'en', t), 'USD 9');
+  assert.equal(formatMoneyCompact({ currency: 'USD', amount: '1.005' }, 'en', t), 'USD 1.01');
+  assert.equal(formatDecimal('0.2373384', 'en'), '0.2373384', 'the exact decimal string is unchanged');
+  assert.equal(formatMoneyCompact({ currency: 'USD', amount: 'unknown' }, 'en', t), 'Unknown');
 });
 
 test('different currencies stay separate and absent values remain unknown', () => {

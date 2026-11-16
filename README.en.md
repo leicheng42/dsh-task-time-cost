@@ -6,27 +6,17 @@
 
 [![Stable](https://img.shields.io/github/v/release/leicheng42/dsh-task-time-cost?label=stable)](https://github.com/leicheng42/dsh-task-time-cost/releases) [![CI](https://github.com/leicheng42/dsh-task-time-cost/actions/workflows/ci.yml/badge.svg)](https://github.com/leicheng42/dsh-task-time-cost/actions/workflows/ci.yml) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-<img src="docs/public/screenshots/summary-030.png" width="560" height="348" alt="Actual plugin showing a central ETA, the full reference range, forecast Tokens and reference costs" />
+<img src="docs/public/screenshots/summary-031.png" width="420" height="448" alt="Actual plugin panel: central remaining time, a range gauge, elapsed time, Tokens and reference cost" />
 
-<details><summary>Dark theme</summary>
-
-<img src="docs/public/screenshots/dark-030.png" width="560" height="374" alt="Actual dark theme with a complete time range and partial known cost notice" />
-
-</details>
-
-<details><summary>Completed turn duration</summary>
-
-<img src="docs/public/screenshots/completed-030.png" width="560" height="250" alt="Naturally completed turn showing its actual duration, Tokens and public-reference cost" />
-
-</details>
-
-*Actual owned-component captures during 0.3.0 development on Windows / DSH Desktop 0.2.2-rc.2. Values belong to their capture-time tasks; prices are public references. These images are not accuracy benchmarks.*
+*Actual panel on DSH Desktop 0.2.2-rc.2, cropped to the plugin's own surface. The gauge spans the reference range with a dot at the central estimate; values belong to the capture-time task and prices are public references.*
 
 ## What it does
 
 Version 0.3.1 provides these features:
 
-- **Version and platform compatibility:** admit the current 0.2.x API line, including rc.3; 0.3+ awaits a new contract review.
+- **See the wait at a glance:** the panel leads with one central figure, a gauge for the full range with its bounds, then small cards for everything else.
+- **Only show what is useful:** unknown values no longer take a row, repeated ranges are merged, and the explanation is a single line; full evidence and exact amounts live under More → details.
+- **Version and platform compatibility:** admit the current 0.2.x API line, including rc.3; 0.3+ awaits a new contract review. Dark theme, narrow windows and keyboard use follow the Host's own design tokens.
 - **Start with the project scope:** read ordinary requests and real Goal objectives; complete multi-app systems receive a project-scale initial reference, then a full-objective model plan can revise it.
 - **Estimate the wait:** show a central time and the complete reference interval; sufficient comparable local tasks update the workload budget using their observed distribution.
 - **See forecast Tokens:** observed Tokens, estimated remaining output and available total forecasts are separate. Less-used details and settings live under the header’s More (⋯) button.

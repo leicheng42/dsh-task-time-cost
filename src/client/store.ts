@@ -22,6 +22,7 @@ interface Entry {
   dirty: boolean;
   generation: number;
   fetched: boolean;
+  retries: number;
 }
 
 /** A single clock for every live row. It never calls the remote service. */
@@ -74,7 +75,7 @@ export class SnapshotStore {
       entry = {
         sessionId, turn, state: { view: null, pending: false, error: null, receivedAt: 0, lastForecast: null },
         listeners: new Set(), inFlight: null, controller: null, poll: null,
-        projectionRevision: undefined, dirty: false, generation: 0, fetched: false,
+        projectionRevision: undefined, dirty: false, generation: 0, fetched: false, retries: 0,
       };
       this.entries.set(key, entry);
     }
@@ -135,6 +136,7 @@ export class SnapshotStore {
         if (this.disposed || generation !== entry.generation) return;
         entry.fetched = true;
         const snapshot = view.snapshot;
+        entry.retries = snapshot ? 0 : Math.min(entry.retries + 1, 3);
         const previous = snapshot ? [view.lastForecast, entry.state.lastForecast]
           .filter((value): value is RetainedTimeForecast => !!value && value.taskKey === snapshot.taskKey)
           .sort((a, b) => b.updatedAt - a.updatedAt)[0] ?? null : entry.state.lastForecast;
@@ -150,6 +152,9 @@ export class SnapshotStore {
         if (this.disposed || generation !== entry.generation) return;
         entry.fetched = true;
         entry.state = { ...entry.state, pending: false, error: errorInfo(error) };
+        // A bundle remount can race the Remote service, so a failed or empty
+        // first read is retried a few times instead of leaving a blank row.
+        if (entry.retries < 3) entry.retries += 1;
       } finally {
         if (generation === entry.generation && !this.disposed) {
           entry.inFlight = null;
@@ -190,11 +195,13 @@ export class SnapshotStore {
   private schedulePoll(entry: Entry) {
     if (this.disposed || entry.poll || entry.inFlight || !entry.listeners.size) return;
     const snapshot = entry.state.view?.snapshot;
-    if (!snapshot || !isLive(snapshot.state)) return;
+    const live = !!snapshot && isLive(snapshot.state);
+    const retrying = entry.retries > 0 && entry.retries < 3;
+    if (!live && !retrying) return;
     entry.poll = setTimeout(() => {
       entry.poll = null;
       void this.refresh(entry.sessionId, entry.turn);
-    }, this.refreshMs);
+    }, live ? this.refreshMs : 2_000);
   }
   dispose() {
     this.disposed = true;
