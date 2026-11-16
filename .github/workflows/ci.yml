@@ -23,7 +23,7 @@ jobs:
           name: prebuilt-package
           path: artifacts/*.tgz
   compatibility:
-    name: ${{ matrix.os }} / SDK ${{ matrix.sdk }} / Node ${{ matrix.node }}
+    name: ${{ matrix.os }} / DSH SDK ${{ matrix.sdk }} / Node ${{ matrix.node }}
     needs: check
     strategy:
       fail-fast: false
@@ -41,17 +41,23 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
-          cache: npm
       - uses: actions/download-artifact@v4
         with:
           name: prebuilt-package
           path: artifacts/prebuilt
-      - run: npm ci --ignore-scripts
-      - run: node scripts/prepare-compat-sdk.mjs ${{ matrix.sdk }}
-      - run: npm install --ignore-scripts --no-audit --no-fund
-      - run: npm run typecheck
-      - run: npm test
-      - run: node scripts/compatibility-smoke.mjs
+      # Install only the official SDK under test, so this job never depends on
+      # this plugin's own dev-dependency resolution.
+      - name: Install DSH ${{ matrix.sdk }}
+        shell: bash
+        run: |
+          mkdir -p artifacts/compat-env
+          cd artifacts/compat-env
+          npm init -y > /dev/null
+          npm install --ignore-scripts --no-audit --no-fund @deepseek-ai/dsh@${{ matrix.sdk }} react@19.2.0
+      - name: Install, import and compose the same archive
+        env:
+          DSH_COMPAT_SDK_ROOT: artifacts/compat-env
+        run: node scripts/compatibility-smoke.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
