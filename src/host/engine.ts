@@ -17,6 +17,7 @@ import type { RequestProgress } from '../shared/time.ts';
 import { applyAiPlan } from '../shared/ai-plan.ts';
 import { forecastCorrection } from '../shared/forecast-guard.ts';
 import { capByRoundBudget } from '../shared/round-budget.ts';
+import { summarizeCalibration } from '../shared/calibration.ts';
 import { chooseFallbackBand } from '../shared/fallback-band.ts';
 import { forecastConfidence, rangeRatio } from '../shared/confidence.ts';
 import type { AiPlan, AiPlanInput } from '../shared/ai-plan.ts';
@@ -50,6 +51,7 @@ export class EstimatorEngine {
   /** Estimates produced by a refresh request once a plan ran out; memory only. */
   private readonly refreshedRemaining = new Map<string, { low: number; high: number; at: number }>();
   private readonly refreshAttempts = new Map<string, number>();
+  private calibrationCache: { samples: number; medianRatio: number | null; underestimated: number; at: number } | null = null;
   /** Recent remaining bounds for the panel trail; memory only. */
   private readonly forecastTrail = new Map<string, Array<{ at: number; highMs: number }>>();
   private readonly latest = new Map<string, { revision: number; at: number; snapshot: EstimateSnapshot }>();
@@ -211,6 +213,20 @@ export class EstimatorEngine {
       const standard = DEFAULT_TEMPLATES.find(candidate => candidate.kind === template.kind);
       return JSON.stringify(configured) === JSON.stringify(standard) ? template : structuredClone(configured);
     });
+  }
+  /**
+   * How the first estimate compared with what actually happened. This is the
+   * only honest basis for the word "accurate": a count, a median ratio and how
+   * often the early number was too low.
+   */
+  calibrationStats(): { samples: number; medianRatio: number | null; underestimated: number } {
+    if (this.calibrationCache && Date.now() - this.calibrationCache.at < 60_000) return this.calibrationCache;
+    const summary = summarizeCalibration([...this.repository.tasks.values()].map(record => {
+      const task = record.current;
+      return { initialHighMs: task.initial?.estimatedTotalMs?.high ?? null, actualMs: task.elapsedActiveMs, completed: task.state === 'completed' && task.endedAt !== null };
+    }));
+    this.calibrationCache = { samples: summary.samples, medianRatio: summary.medianRatio, underestimated: summary.underestimated, at: Date.now() };
+    return this.calibrationCache;
   }
   /** True when a running turn is worth a fresh estimate from the model. */
   needsRefresh(sessionId: string, turn: number): boolean {
@@ -550,7 +566,7 @@ export class EstimatorEngine {
       tools: { completed: completedTools.length, active: activeTools.length, workMs: toolWorkMs },
       performance: { ...route, firstContentMs: performanceEstimate.firstContentMs, firstTextMs: performanceEstimate.firstTextMs, visibleTps: performanceEstimate.visibleTps, totalCallMs: performanceEstimate.totalCallMs, source: `${performanceEstimate.sourceKind}:${performanceEstimate.match}`, trust: performanceEstimate.trust, metricOrigins: performanceEstimate.metricOrigins, stale: performanceEstimate.reasons.includes('stale-profile-retained-for-audit') },
       priceSources: [...new Set(usageCalls.flatMap(call => call.resolution.entry ? [`${call.resolution.entry.id}@${call.resolution.entry.version}${call.resolution.entry.sourceUrl ? ` ${call.resolution.entry.sourceUrl}` : ''}`] : []))],
-      confidence, forecastTrail: [...(this.forecastTrail.get(key) ?? [])], activity,
+      confidence, forecastTrail: [...(this.forecastTrail.get(key) ?? [])], activity, calibration: this.calibrationStats(),
       ...(task.goalRounds ? { goalRounds: task.goalRounds } : {}),
       initial, error: errors, reasons: [...new Set([...reasons, ...observed.reasons])], scope: 'current_turn',
     });

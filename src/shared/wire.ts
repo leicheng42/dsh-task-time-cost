@@ -60,6 +60,8 @@ export interface EstimateSnapshot {
   scope: 'current_turn';
   /** How strongly the panel may state a number; only 'stable' allows a point estimate. */
   confidence?: 'assessing' | 'preliminary' | 'calibrated' | 'stable';
+  /** Finished turns compared against their first estimate; the honest accuracy record. */
+  calibration?: { samples: number; medianRatio: number | null; underestimated: number };
   /** Goal round budget, when this turn belongs to a goal. */
   goalRounds?: { started: number; max: number };
   /** Activity counts per 10s bucket over the last minute; progress evidence, not a percentage. */

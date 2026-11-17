@@ -300,9 +300,8 @@ export function applyClient(ctx: Context): void {
           </button>
         </div>
         <Tooltip text={t('tipStatus')}><p className={showsNumber ? 'dte-status dte-tabular' : 'dte-status dte-status-plain'}>{statusText}</p></Tooltip>
-        {progress.state !== 'done' && progress.state !== 'starting' && (finishClock
-          ? <p className="dte-finish">{t('finishAt', { time: finishClock })}</p>
-          : <p className="dte-finish dte-muted">{t('noFinishTime')}</p>)}
+        {progress.state !== 'done' && progress.state !== 'starting' && finishClock
+          && <p className="dte-finish">{t('finishAt', { time: finishClock })}</p>}
         {progress.state === 'done' && doneClock && <p className="dte-finish">{t('finishedAt', { time: doneClock })}</p>}
         {reasonLine && progress.state !== 'done' && <p className="dte-finish dte-muted">{reasonLine}</p>}
         {snapshot && !terminal && (() => {

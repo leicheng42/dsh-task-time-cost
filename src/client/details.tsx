@@ -62,6 +62,9 @@ export function EstimateDetails({ snapshot, timeReference, receivedAt, now, loca
     {snapshot.estimatedRemainingOutputTokens != null && <p className="dte-muted dte-small">{t('tokenRemainingNote')}</p>}
     {partial && <p className="dte-warn dte-small">{t('incompleteCostDetail')}</p>}
     {snapshot.unpricedCalls > 0 && <p className="dte-muted dte-small">{t('noPrice', { count: number(snapshot.unpricedCalls) })}</p>}
+    {snapshot.calibration && snapshot.calibration.samples > 0 && <p className="dte-muted dte-small">
+      {t('calibrationLine', { samples: number(snapshot.calibration.samples), ratio: snapshot.calibration.medianRatio === null ? '—' : snapshot.calibration.medianRatio.toFixed(2), low: number(snapshot.calibration.underestimated) })}
+    </p>}
     {snapshot.incompleteForecastUnits > 0 && <p className="dte-muted dte-small">{t('incompleteForecast', { count: number(snapshot.incompleteForecastUnits) })}</p>}
 
     <details className="dte-subsection">
