@@ -1,6 +1,5 @@
 import * as React from 'react';
 import type { EstimatorRemote, ManagementAction, ManagementView } from '../shared/wire.ts';
-import { numericFields, parseConfiguration } from './config.ts';
 import { formatDate, formatDuration, formatMoneyList, formatNumber, formatProfileMetrics, formatState } from './format.ts';
 import { errorInfo, errorText, manageRemote, RemoteCallError } from './remote.ts';
 import type { ClientError } from './remote.ts';
@@ -19,32 +18,17 @@ interface Props { remote: EstimatorRemote; store: SnapshotStore; t: Translate; l
 export function Management({ remote, store, t, locale }: Props) {
   const id = React.useId();
   const [data, setData] = React.useState<ManagementView | null>(null);
-  const [draft, setDraft] = React.useState('');
-  const [inputs, setInputs] = React.useState<Record<string, string>>({});
-  const [importText, setImportText] = React.useState('');
   const [pending, setPending] = React.useState<ManagementAction | null>(null);
   const [error, setError] = React.useState<ClientError | null>(null);
-  const [validation, setValidation] = React.useState('');
   const [success, setSuccess] = React.useState<MessageKey | null>(null);
   const [confirmReset, setConfirmReset] = React.useState(false);
   const activeRequest = React.useRef<AbortController | null>(null);
   const downloadAnchor = React.useRef<HTMLAnchorElement>(null);
   const downloadUrl = React.useRef<string | null>(null);
   const resetButton = React.useRef<HTMLButtonElement>(null);
-  const advancedSection = React.useRef<HTMLDetailsElement>(null);
-  const jsonSection = React.useRef<HTMLDetailsElement>(null);
-  const jsonInput = React.useRef<HTMLTextAreaElement>(null);
-  const importInput = React.useRef<HTMLTextAreaElement>(null);
-  const focusJson = () => {
-    if (advancedSection.current) advancedSection.current.open = true;
-    if (jsonSection.current) jsonSection.current.open = true;
-    jsonInput.current?.focus();
-  };
 
   const adopt = React.useCallback((next: ManagementView) => {
     setData(next);
-    setDraft(JSON.stringify(next.config, null, 2));
-    setInputs(numericFields(next.config));
     store.configure(next.config);
   }, [store]);
 
@@ -54,7 +38,6 @@ export function Management({ remote, store, t, locale }: Props) {
     activeRequest.current = controller;
     setPending(action);
     setError(null);
-    setValidation('');
     setSuccess(null);
     try {
       const result = await manageRemote(remote, action, payload, controller.signal);
@@ -93,41 +76,11 @@ export function Management({ remote, store, t, locale }: Props) {
     };
   }, [run]);
 
-  let parsed: Record<string, unknown> | null = null;
-  try { if (draft) parsed = parseConfiguration(draft); } catch { /* Validation is shown on save; the draft remains editable. */ }
-
   // Calibration rows are ordered by their newest real observation, so a route
   // that was never measured sinks below routes with local evidence.
   const orderedProfiles = [...(data?.profiles ?? [])].sort((left, right) => (right.testedAt ?? 0) - (left.testedAt ?? 0));
   const shownProfiles = orderedProfiles.slice(0, 8);
 
-  const changeField = (key: string, value: string) => {
-    setInputs((previous) => ({ ...previous, [key]: value }));
-    setSuccess(null);
-    setValidation('');
-    if (parsed && value.trim() && Number.isFinite(Number(value))) setDraft(JSON.stringify({ ...parsed, [key]: Number(value) }, null, 2));
-  };
-  const changeJson = (value: string) => {
-    setDraft(value);
-    setSuccess(null);
-    setValidation('');
-    try { setInputs(numericFields(parseConfiguration(value))); } catch { /* Keep the last valid form values while JSON is being typed. */ }
-  };
-  const save = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    let next: Record<string, unknown>;
-    try { next = parseConfiguration(draft); }
-    catch (failure) {
-      setValidation(t('invalidConfig', { message: failure instanceof TypeError && failure.message === 'CONFIG_OBJECT_REQUIRED' ? t('objectRequired') : failure instanceof Error ? failure.message : t('objectRequired') }));
-      focusJson();
-      return;
-    }
-    void run('saveConfig', JSON.stringify(next));
-  };
-  const beginImport = () => {
-    if (!importText.trim()) { setValidation(t('importRequired')); importInput.current?.focus(); return; }
-    void run('importBaselines', importText);
-  };
 
   return <section aria-label={t('settings')}>
     <p className="dte-muted dte-small">{t('settingsHint')}</p>
@@ -137,24 +90,8 @@ export function Management({ remote, store, t, locale }: Props) {
     </div>
     <div className="dte-status" role="status" aria-live="polite">{pending ? t(pendingLabels[pending]) : success ? <span className="dte-success">{t(success)}</span> : null}</div>
     {error && <p className="dte-error" role="alert">{errorText(error, t)}</p>}
-    {validation && <p className="dte-error" role="alert" id={`${id}-validation`}>{validation}</p>}
     {data?.storage === 'unavailable' && <p className="dte-warn" role="status">{t('storageUnavailable')}</p>}
     {data && <>
-      <form onSubmit={save} noValidate aria-label={t('config')} aria-describedby={validation ? `${id}-validation` : undefined}>
-        <details ref={advancedSection} className="dte-subsection">
-          <summary>{t('advancedSettings')}</summary>
-          <details ref={jsonSection} className="dte-subsection">
-            <summary>{t('advancedJson')}</summary>
-            <p className="dte-muted dte-small" id={`${id}-json-hint`}>{t('advancedHint')}</p>
-            <label className="dte-field" htmlFor={`${id}-json`}>
-              <span className="dte-small">{t('config')}</span>
-              <textarea ref={jsonInput} id={`${id}-json`} name="configuration" autoComplete="off" className="dte-code" rows={12} value={draft} spellCheck={false}
-                disabled={pending !== null} aria-describedby={`${id}-json-hint`} onChange={(event) => changeJson(event.currentTarget.value)} />
-            </label>
-          </details>
-        </details>
-        <div className="dte-actions"><button className="dte-primary" type="submit" disabled={pending !== null}>{t('save')}</button></div>
-      </form>
       <details className="dte-subsection">
         <summary>{t('performanceProfiles')}</summary>
         <p className="dte-muted dte-small">{t('profilesHint')}</p>
@@ -183,15 +120,7 @@ export function Management({ remote, store, t, locale }: Props) {
       </details>
       <details className="dte-subsection">
         <summary>{t('data')}</summary>
-        <p className="dte-muted dte-small" id={`${id}-import-hint`}>{t('importHint')}</p>
-        <label className="dte-field" htmlFor={`${id}-import`}>
-          <span>{t('importLabel')}</span>
-          <textarea ref={importInput} id={`${id}-import`} name="baselineImport" autoComplete="off" rows={5} value={importText} placeholder={t('importPlaceholder')}
-            disabled={pending !== null} spellCheck={false} aria-describedby={`${id}-import-hint`}
-            onChange={(event) => setImportText(event.currentTarget.value)} />
-        </label>
         <div className="dte-actions">
-          <button type="button" disabled={pending !== null || !importText.trim()} onClick={beginImport}>{t('import')}</button>
           <button type="button" disabled={pending !== null} onClick={() => void run('export')}>{t('export')}</button>
         </div>
         <div className="dte-actions">
