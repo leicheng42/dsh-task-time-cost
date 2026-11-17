@@ -109,6 +109,8 @@ export const styles = `
 .dte .dte-trail-caption{color:var(--dsw-alias-label-tertiary);font-size:10px;white-space:nowrap}
 .dte .dte-trail-bars{display:flex;align-items:flex-end;gap:2px;height:18px;flex:1;min-width:0}
 .dte .dte-trail-bars i{flex:1;min-width:3px;max-width:10px;border-radius:2px 2px 0 0;background:color-mix(in srgb,var(--dsw-alias-brand-primary) 45%,transparent)}
+.dte .dte-facts{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin:14px 0 0;color:var(--dsw-alias-label-secondary);font-size:12px}
+.dte .dte-facts b{color:var(--dsw-alias-label-primary);font-weight:600;margin-left:3px}
 .dte .dte-metrics{display:flex;flex-direction:column;gap:14px;margin:16px 0 0}
 .dte .dte-metric-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
 .dte .dte-metric-label{color:var(--dsw-alias-label-secondary);font-size:12px;font-weight:500}

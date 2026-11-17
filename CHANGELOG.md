@@ -1,5 +1,12 @@
 # Changelog / 发行说明
 
+## 0.6.0 — one number, no configuration
+
+- Trim the panel to what a user needs: the answer, when it finishes, one progress band, and one line of facts. The metric table, confidence and source tags, the estimate trail and the in-panel model switch are gone (the full detail stays under ⋯).
+- Remove the model switch entirely: the estimator runs automatically on the session route for long tasks, so a user never configures or toggles anything.
+- Settings now expose only local data actions (read, reset, export, import) plus the collapsed advanced JSON; the numeric tuning grid and the estimator fieldset were removed from the UI, where the defaults are the product's recommendation.
+- Rewrite the design note as v2: 一个数字，零配置 (docs/public/design.md).
+
 ## 0.5.0 — range first: a single number is earned, not assumed
 
 P1 of docs/public/design.md.

@@ -79,39 +79,6 @@ export function applyClient(ctx: Context): void {
   const subscribeLocale = (listener: () => void) => locale.subscribe(listener);
   const readLocale = () => locale.getSnapshot();
 
-  /** Top-level switch: one click, no configuration, saved through the Host. */
-  function EstimatorSwitch({ remote, t }: { remote: EstimatorRemote | undefined; t: Translate }) {
-    const [enabled, setEnabled] = React.useState<boolean | null>(null);
-    const [busy, setBusy] = React.useState(false);
-    React.useEffect(() => {
-      if (!remote) return;
-      let active = true;
-      void (async () => {
-        try {
-          const result = await manageRemote(remote, 'read', '');
-          const config = (result.data as { config?: { estimatorModel?: { enabled?: boolean } } } | undefined)?.config;
-          if (active) setEnabled(config?.estimatorModel?.enabled !== false);
-        } catch { if (active) setEnabled(null); }
-      })();
-      return () => { active = false; };
-    }, [remote]);
-    const toggle = async () => {
-      if (!remote || enabled === null || busy) return;
-      const next = !enabled;
-      setBusy(true); setEnabled(next);
-      try { await manageRemote(remote, 'estimatorModel', JSON.stringify({ enabled: next })); }
-      catch { setEnabled(!next); }
-      finally { setBusy(false); }
-    };
-    return <div className="dte-switch-row">
-      <label className="dte-switch">
-        <input type="checkbox" checked={enabled === true} disabled={enabled === null || busy} onChange={() => void toggle()} />
-        <span>{t('estimatorSwitch')}</span>
-      </label>
-      <span className="dte-muted dte-small">{t('estimatorSwitchHint')}</span>
-    </div>;
-  }
-
   function EstimateWidget({ props, tail }: { props: SlotProps; tail: boolean }) {
     const localeSnapshot = React.useSyncExternalStore(subscribeLocale, readLocale, readLocale);
     const marker = readMarker(props.useProjection('taskEstimator'));
@@ -175,7 +142,9 @@ export function applyClient(ctx: Context): void {
     // Until the executing agent has planned the work (or a local sample exists)
     // a number would be a guess, so the panel says what it is doing instead.
     const assessing = !!snapshot && isAssessing(snapshot) && sessionRemaining === null;
-    const displayedRemaining = assessing ? null : sessionRemaining ?? retained?.remainingMs;
+    // An overrun makes the retained number a lie: show the elapsed fact instead.
+    const overrun = !!snapshot?.reasons.includes('initial-forecast-exceeded') || !!snapshot?.reasons.includes('plan-below-observed-effort');
+    const displayedRemaining = assessing ? null : sessionRemaining ?? (overrun ? null : retained?.remainingMs);
     const range = formatEta(displayedRemaining, t);
     // Only a stable forecast may collapse into one number; everything else keeps
     // the range so a long task never opens with a confident-looking minute.
@@ -212,11 +181,6 @@ export function applyClient(ctx: Context): void {
     })();
     const partialToken = snapshot?.observedTokenStatus === 'partial';
     const partialCost = !!snapshot && (snapshot.observedCostStatus === 'partial' || snapshot.forecastCostStatus === 'partial');
-    const overrun = !!snapshot?.reasons.includes('initial-forecast-exceeded') || !!snapshot?.reasons.includes('plan-below-observed-effort');
-    const sourceTag = overrun ? t('sourceAdjusted')
-      : snapshot?.reasons.includes('estimator-model-plan') ? t('sourceEstimator')
-      : snapshot?.reasons.includes('ai-workload-plan-reference') ? t('sourceAiPlan')
-      : snapshot && (snapshot.localPerformanceSamples > 0 || snapshot.workloadSamples > 0) ? t('sourceLocal') : t('sourcePrior');
     // Three dimensions share one shape: spent is a fact, left and total are
     // forecasts. A missing value prints a dash instead of a zero.
     const timeLeft = validSpan(displayedRemaining) ? range : t('dash');
@@ -246,14 +210,6 @@ export function applyClient(ctx: Context): void {
       return Number.isFinite(sum) ? sum : null;
     };
     const costRemaining = snapshot ? remainingCostRanges(snapshot) : null;
-    const metrics = [
-      { key: 'time', label: t('rowTime'), used: elapsed, left: timeLeft, total: timeTotal,
-        fill: terminal ? 1 : progressShare(timing?.activeMs ?? snapshot?.elapsedActiveMs, displayedRemaining?.high) },
-      { key: 'tokens', label: t('rowTokens'), used: tokenUsed, left: terminal ? t('dash') : tokenLeft, total: terminal ? t('dash') : tokenTotal,
-        fill: terminal ? 1 : progressShare(snapshot?.observedTokens, snapshot?.estimatedRemainingOutputTokens?.high) },
-      { key: 'cost', label: t('rowCost'), used: costUsed, left: terminal ? t('dash') : costLeft, total: terminal ? t('dash') : costTotal,
-        fill: terminal ? 1 : progressShare(numericMoney(snapshot?.knownCost), costRemaining?.[0] ? Number(costRemaining[0].range.high) : null) },
-    ];
     // The completion clock is what turns an estimate into a plan: "by when".
     const finishClock = !terminal && !overrun && validSpan(displayedRemaining) ? clockRange(displayedRemaining, now, localeSnapshot.active, t) : null;
     // The entry line has room for one time, so it prints the central one.
@@ -291,13 +247,10 @@ export function applyClient(ctx: Context): void {
         <div className="dte-hero">
           <span className="dte-hero-value dte-tabular">{snapshot ? heroValue : t('unknown')}</span>
           <span className="dte-hero-caption">{heroCaption}</span>
-          {snapshot && !terminal && !assessing && !pointAllowed && <span className="dte-tag">{t(confidence === 'calibrated' ? 'confidenceCalibrated' : 'confidencePreliminary')}</span>}
-          {snapshot && !terminal && !assessing && <span className="dte-tag dte-source">{sourceTag}</span>}
         </div>
         {overrun && !terminal && <p className="dte-finish">{t('overrun')}</p>}
         {finishClock && <p className="dte-finish">{t('finishAt', { time: finishClock })}</p>}
         {doneClock && <p className="dte-finish">{t('finishedAt', { time: doneClock })}</p>}
-        {snapshot && <EstimatorSwitch remote={remote} t={t} />}
         {timeline && <div className="dte-timeline" role="img" aria-label={`${elapsed} → ${range}`}>
           <div className="dte-timeline-track" aria-hidden="true">
             <span className="dte-timeline-done" style={{ width: `${timeline.now}%` }} />
@@ -307,32 +260,11 @@ export function applyClient(ctx: Context): void {
           </div>
           <div className="dte-timeline-labels" aria-hidden="true"><span>{timeline.start}</span><span>{timeline.finish}</span></div>
         </div>}
-        {(() => {
-          const trail = snapshot?.forecastTrail ?? [];
-          if (terminal || trail.length < 3) return null;
-          const maxHigh = Math.max(...trail.map(point => point.highMs), 1);
-          return <div className="dte-trail" role="img" aria-label={t('trailLabel')}>
-            <span className="dte-trail-caption">{t('trailCaption')}</span>
-            <span className="dte-trail-bars" aria-hidden="true">{trail.map((point, index) => <i key={index} style={{ height: `${Math.max(12, Math.round(point.highMs / maxHigh * 100))}%` }} />)}</span>
-          </div>;
-        })()}
-        {retained && <p className="dte-status-line">{t('retainedForecastHint', { time: new Date(retained.updatedAt).toLocaleTimeString(localeSnapshot.active, { hour: '2-digit', minute: '2-digit' }) })}</p>}
-        {snapshot && <div className="dte-metrics">
-          {metrics.map(metric => <div className="dte-metric" key={metric.key}>
-            <div className="dte-metric-head">
-              <span className="dte-metric-label">{metric.label}</span>
-              {metric.fill != null && !terminal && <span className="dte-metric-share dte-tabular">{Math.round(metric.fill * 100)}%</span>}
-            </div>
-            <div className={metric.fill == null ? 'dte-bar dte-bar-unknown' : 'dte-bar'} aria-hidden="true">
-              {metric.fill != null && <span className="dte-bar-fill" style={{ width: `${Math.max(2, Math.round(metric.fill * 100))}%` }} />}
-            </div>
-            <dl className="dte-metric-values">
-              <div><dt>{t('colUsed')}</dt><dd>{metric.used}{metric.key === 'tokens' && partialToken && <span className="dte-tag">{t('partialTag')}</span>}{metric.key === 'cost' && partialCost && <span className="dte-tag">{t('partialTag')}</span>}</dd></div>
-              {!terminal && <div><dt>{t('colLeft')}</dt><dd>{metric.left}</dd></div>}
-              {!terminal && metric.total !== metric.left && <div><dt>{t('colTotal')}</dt><dd>{metric.total}</dd></div>}
-            </dl>
-          </div>)}
-        </div>}
+        {snapshot && <p className="dte-facts dte-tabular">
+          <span>{t('factUsed')}<b>{elapsed}</b></span>
+          <span>{costUsed}</span>
+          <span>{tokenUsed}</span>
+        </p>}
         {footnote && <p className="dte-footnote">{footnote}</p>}
         {state.error && <p className="dte-error dte-small" role="alert">{errorText(state.error, t)}</p>}
         <div id={`${id}-more`} className="dte-pop-actions" hidden={view === 'summary'}>
