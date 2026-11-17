@@ -1,6 +1,6 @@
 {
   "name": "dsh-task-time-cost",
-  "version": "0.8.2",
+  "version": "0.8.3",
   "type": "module",
   "description": "Remaining-time, Token budget and reference cost estimates for DeepSeek Harness, calibrated locally without a separate model call.",
   "license": "MIT",

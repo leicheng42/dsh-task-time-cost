@@ -42,6 +42,7 @@ export const snapshotSchema: z.ZodType<EstimateSnapshot> = z.object({
   confidence: z.enum(['assessing', 'preliminary', 'calibrated', 'stable']).optional(),
   forecastTrail: z.array(z.object({ at: nonnegative, highMs: nonnegative })).max(16).optional(),
   activity: z.array(integer).max(12).optional(),
+  goalRounds: z.object({ started: integer, max: integer }).optional(),
   error: z.string().nullable(), reasons: z.array(z.string()), scope: z.literal('current_turn'),
 });
 export const managementViewSchema = z.object({

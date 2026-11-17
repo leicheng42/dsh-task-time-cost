@@ -60,6 +60,8 @@ export interface EstimateSnapshot {
   scope: 'current_turn';
   /** How strongly the panel may state a number; only 'stable' allows a point estimate. */
   confidence?: 'assessing' | 'preliminary' | 'calibrated' | 'stable';
+  /** Goal round budget, when this turn belongs to a goal. */
+  goalRounds?: { started: number; max: number };
   /** Activity counts per 10s bucket over the last minute; progress evidence, not a percentage. */
   activity?: number[];
   /** Recent high bounds of the remaining range, oldest first; a display trail only. */

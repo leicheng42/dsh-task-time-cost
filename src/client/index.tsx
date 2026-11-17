@@ -173,8 +173,14 @@ export function applyClient(ctx: Context): void {
       finishing: t('stateFinishing', { value: range }), faster: t('stateFaster', { value: range }),
       slower: t('stateSlower', { value: range }), onTrack: t('stateOnTrack', { value: range }),
     };
+    const rounds = snapshot?.goalRounds ?? null;
+    const roundsLeft = rounds ? Math.max(0, rounds.max - rounds.started) : null;
+    const budgetSpent = !!snapshot?.reasons.includes('goal-round-budget-spent');
+    const budgetClose = !!snapshot?.reasons.includes('goal-round-budget-close');
     // A band inferred from elapsed time is not a plan: say so in the sentence.
-    const statusText = banded && showsStatusNumber(progress.state) ? t('stateBanded', { value: range }) : statusLabel[progress.state];
+    const statusText = budgetSpent && rounds
+      ? t('stateRoundBudgetSpent', { started: formatNumber(rounds.started, localeSnapshot.active, t), max: formatNumber(rounds.max, localeSnapshot.active, t) })
+      : banded && showsStatusNumber(progress.state) ? t('stateBanded', { value: range }) : statusLabel[progress.state];
     const showsNumber = showsStatusNumber(progress.state);
     const unconfigured = !!snapshot && costUnconfigured(snapshot);
     const referencePrice = snapshot?.reasons.includes('public-reference-price-not-provider-bill') ?? false;
@@ -267,6 +273,7 @@ export function applyClient(ctx: Context): void {
           ? <p className="dte-finish">{t('finishAt', { time: finishClock })}</p>
           : <p className="dte-finish dte-muted">{t('noFinishTime')}</p>)}
         {progress.state === 'done' && doneClock && <p className="dte-finish">{t('finishedAt', { time: doneClock })}</p>}
+        {budgetClose && !budgetSpent && roundsLeft !== null && progress.state !== 'done' && <p className="dte-finish dte-muted">{t('roundBudgetClose', { left: formatNumber(roundsLeft, localeSnapshot.active, t) })}</p>}
         {banded && progress.state !== 'done' && <p className="dte-finish dte-muted">{t('bandNote')}</p>}
         {overrun && progress.state !== 'done' && <p className="dte-finish dte-muted">{t('estimateStale')}</p>}
         {snapshot && !terminal && (() => {

@@ -68,7 +68,8 @@ jobs:
           else
             tag=latest
           fi
-          npm publish artifacts/*.tgz --tag "$tag" --access public --ignore-scripts
+          ls -l artifacts
+          npm publish --tag "$tag" --access public --ignore-scripts
       - name: Record registry state
         # Registry propagation can lag; a slow view must not fail a successful publish.
         continue-on-error: true

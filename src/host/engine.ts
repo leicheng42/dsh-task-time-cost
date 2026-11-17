@@ -16,6 +16,7 @@ import { estimateContinuation, estimateWorkloadTime } from '../shared/time.ts';
 import type { RequestProgress } from '../shared/time.ts';
 import { applyAiPlan } from '../shared/ai-plan.ts';
 import { forecastCorrection } from '../shared/forecast-guard.ts';
+import { capByRoundBudget } from '../shared/round-budget.ts';
 import { chooseFallbackBand } from '../shared/fallback-band.ts';
 import { forecastConfidence, rangeRatio } from '../shared/confidence.ts';
 import type { AiPlan, AiPlanInput } from '../shared/ai-plan.ts';
@@ -426,6 +427,11 @@ export class EstimatorEngine {
         reasons.push(band.reason);
       }
     }
+    // A goal stops when its round budget runs out, whatever the clock says.
+    const roundCap = capByRoundBudget(remaining, task.goalRounds ?? null,
+      completedCount > 0 && elapsedActive > 0 ? elapsedActive / completedCount : null);
+    if (roundCap.remaining) { remaining = roundCap.remaining; typical = (remaining.low + remaining.high) / 2; }
+    reasons.push(...roundCap.reasons);
     // A forecast has to survive contact with the clock: past the initial bound, or
     // a plan that claims a small fraction of the time already spent, the honest
     // answer is that the early number was wrong. See docs/DESIGN-0.4.md §3.
@@ -545,6 +551,7 @@ export class EstimatorEngine {
       performance: { ...route, firstContentMs: performanceEstimate.firstContentMs, firstTextMs: performanceEstimate.firstTextMs, visibleTps: performanceEstimate.visibleTps, totalCallMs: performanceEstimate.totalCallMs, source: `${performanceEstimate.sourceKind}:${performanceEstimate.match}`, trust: performanceEstimate.trust, metricOrigins: performanceEstimate.metricOrigins, stale: performanceEstimate.reasons.includes('stale-profile-retained-for-audit') },
       priceSources: [...new Set(usageCalls.flatMap(call => call.resolution.entry ? [`${call.resolution.entry.id}@${call.resolution.entry.version}${call.resolution.entry.sourceUrl ? ` ${call.resolution.entry.sourceUrl}` : ''}`] : []))],
       confidence, forecastTrail: [...(this.forecastTrail.get(key) ?? [])], activity,
+      ...(task.goalRounds ? { goalRounds: task.goalRounds } : {}),
       initial, error: errors, reasons: [...new Set([...reasons, ...observed.reasons])], scope: 'current_turn',
     });
     this.latest.set(key, { revision, at: now, snapshot });
