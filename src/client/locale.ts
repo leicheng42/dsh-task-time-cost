@@ -32,6 +32,11 @@ export const en = {
   stateFinishing: 'Almost done, {value} left',
   stateFaster: 'Faster than expected, {value} left', stateSlower: 'Slower than expected, {value} left',
   stateOnTrack: 'On track, {value} left', stateBanded: 'Still running, estimated {value} left', stateRoundBudgetSpent: 'Goal round budget used up ({started}/{max}) — this round is the last one', roundBudgetClose: 'Only {left} goal rounds left',
+  hintRange: 'A range, not a promise: the low bound is the optimistic end, the high bound the conservative one. The single number appears only when the evidence is strong enough.',
+  hintRangeLabel: 'What does this range mean',
+  hintActivity: '第 9 轮 · 10 步 means 9 model rounds and 10 tool calls so far this turn. The six bars are activity in the last 60 seconds (fuller = busier); all empty means it is probably waiting on the model.',
+  hintActivityLabel: 'What do the rounds, steps and bars mean',
+  hintFacts: 'Used = real elapsed time. USD = public catalogue reference price, not a bill. The last figure is Tokens spent.',
   noFinishTime: 'No finish time yet', estimateStale: 'Earlier estimate expired, work continues', bandNote: 'Range inferred from the time already spent',
   activityLabel: 'Activity in the last minute', activityQuiet: 'no activity in the last minute', activityCounts: 'round {calls} · step {steps}',
 
@@ -324,6 +329,11 @@ export const zh: Record<MessageKey, string> = {
   stateFinishing: '看起来快到收尾了，剩 {value}',
   stateFaster: '比预估快，剩 {value}', stateSlower: '比预估慢，剩 {value}',
   stateOnTrack: '正常推进，剩 {value}', stateBanded: '还在跑，按已用时间估算，剩 {value}', stateRoundBudgetSpent: '目标轮次已用完（{started}/{max}），本轮结束即停止', roundBudgetClose: '目标轮次仅剩 {left} 轮',
+  hintRange: '这是一个区间而不是承诺：下界是乐观值，上界是保守值。只有当证据足够时才会收缩成一个数字。',
+  hintRangeLabel: '这个区间是什么意思',
+  hintActivity: '第 9 轮 · 10 步 = 本轮已完成 9 个模型回合、10 次工具调用。右边 6 格是最近 60 秒的动静：越满说明越忙，全空通常表示在等模型返回。',
+  hintActivityLabel: '轮次、步数和那几格代表什么',
+  hintFacts: '已用 = 实际流逝的工作时间；USD = 公开目录参考价，不是账单；最后一列是已消耗的 Token。',
   noFinishTime: '尚未能给出完成时间', estimateStale: '预估已失效，但仍在推进', bandNote: '区间按已用时间推算',
   activityLabel: '最近一分钟的活动密度', activityQuiet: '最近一分钟无活动（可能在等模型）', activityCounts: '第 {calls} 轮 · {steps} 步',
 

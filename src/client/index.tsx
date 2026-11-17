@@ -82,6 +82,14 @@ export function applyClient(ctx: Context): void {
   const subscribeLocale = (listener: () => void) => locale.subscribe(listener);
   const readLocale = () => locale.getSnapshot();
 
+  /** A small "what is this?" marker: native title plus an accessible popover on hover/focus. */
+  function Hint({ id, text, label }: { id: string; text: string; label: string }) {
+    return <span className="dte-hint-wrap">
+      <button type="button" className="dte-hint" aria-label={label} aria-describedby={id} data-hint={text} onClick={event => event.stopPropagation()}>?</button>
+      <span className="dte-hint-bubble" id={id} role="tooltip">{text}</span>
+    </span>;
+  }
+
   function EstimateWidget({ props, tail }: { props: SlotProps; tail: boolean }) {
     const localeSnapshot = React.useSyncExternalStore(subscribeLocale, readLocale, readLocale);
     const marker = readMarker(props.useProjection('taskEstimator'));
@@ -268,7 +276,7 @@ export function applyClient(ctx: Context): void {
             <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="3" cy="8" r="1.2" fill="currentColor" /><circle cx="8" cy="8" r="1.2" fill="currentColor" /><circle cx="13" cy="8" r="1.2" fill="currentColor" /></svg>
           </button>
         </div>
-        <p className={showsNumber ? 'dte-status dte-tabular' : 'dte-status dte-status-plain'}>{statusText}</p>
+        <p className={showsNumber ? 'dte-status dte-tabular' : 'dte-status dte-status-plain'}>{statusText}{showsNumber && <Hint id={`${id}-range-hint`} text={t('hintRange')} label={t('hintRangeLabel')} />}</p>
         {progress.state !== 'done' && progress.state !== 'starting' && (finishClock
           ? <p className="dte-finish">{t('finishAt', { time: finishClock })}</p>
           : <p className="dte-finish dte-muted">{t('noFinishTime')}</p>)}
@@ -280,14 +288,15 @@ export function applyClient(ctx: Context): void {
           const buckets = snapshot.activity ?? [];
           const quiet = buckets.every(value => value === 0);
           const max = Math.max(...buckets, 1);
-          return <div className="dte-activity" role="img" aria-label={t('activityLabel')}>
+          return <div className="dte-activity" role="img" aria-label={t('activityLabel')} title={t('hintActivity')}>
             <span className="dte-activity-counts dte-tabular">{t('activityCounts', { calls: formatNumber(snapshot.calls.completed, localeSnapshot.active, t), steps: formatNumber(snapshot.tools.completed, localeSnapshot.active, t) })}</span>
+            <Hint id={`${id}-activity-hint`} text={t('hintActivity')} label={t('hintActivityLabel')} />
             {quiet
               ? <span className="dte-activity-quiet">{t('activityQuiet')}</span>
               : <span className="dte-activity-band" aria-hidden="true">{buckets.map((value, index) => <i key={index} style={{ height: `${Math.max(12, Math.round(value / max * 100))}%` }} />)}</span>}
           </div>;
         })()}
-        {snapshot && <p className="dte-facts dte-tabular">
+        {snapshot && <p className="dte-facts dte-tabular" title={t('hintFacts')}>
           <span>{t('factUsed')}<b>{elapsed}</b></span>
           <span>{costUsed}</span>
           <span>{tokenUsed}</span>
