@@ -6,7 +6,7 @@
 
 [![Stable](https://img.shields.io/github/v/release/leicheng42/dsh-task-time-cost?label=stable)](https://github.com/leicheng42/dsh-task-time-cost/releases) [![CI](https://github.com/leicheng42/dsh-task-time-cost/actions/workflows/ci.yml/badge.svg)](https://github.com/leicheng42/dsh-task-time-cost/actions/workflows/ci.yml) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-<img src="docs/public/screenshots/summary-060.png" width="420" height="448" alt="Actual plugin panel: central remaining time, a range gauge, elapsed time, Tokens and reference cost" />
+<img src="docs/public/screenshots/panel-light.png" width="420" height="448" alt="Actual plugin panel: central remaining time, a range gauge, elapsed time, Tokens and reference cost" />
 
 *Actual panel on DSH Desktop 0.2.2-rc.2, cropped to the plugin's own surface. The top answers "how much longer and by when"; the gauge shows the full range; the table compares time, Tokens and cost through the same spent / left / forecast-total columns. Values belong to the capture-time task and prices are public references.*
 

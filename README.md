@@ -6,7 +6,7 @@
 
 [![Stable](https://img.shields.io/github/v/release/leicheng42/dsh-task-time-cost?label=stable)](https://github.com/leicheng42/dsh-task-time-cost/releases) [![CI](https://github.com/leicheng42/dsh-task-time-cost/actions/workflows/ci.yml/badge.svg)](https://github.com/leicheng42/dsh-task-time-cost/actions/workflows/ci.yml) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-<img src="docs/public/screenshots/summary-060.png" width="420" height="448" alt="真实插件浮窗：中心剩余时间、范围刻度、已用时间、Token 与费用参考" />
+<img src="docs/public/screenshots/panel-light.png" width="420" height="448" alt="真实插件浮窗：中心剩余时间、范围刻度、已用时间、Token 与费用参考" />
 
 *DSH Desktop 0.2.2-rc.2 上的真实浮窗，仅裁剪插件自身区域。顶部是“还剩多久 + 预计几点完成”，刻度给出完整区间；下面的表格用同一套“已用 / 还剩 / 预计总计”对比时间、Token 与费用。数值属于拍摄时的任务，费用为公共目录参考。*
 

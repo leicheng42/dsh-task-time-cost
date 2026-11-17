@@ -317,7 +317,7 @@ export function applyClient(ctx: Context): void {
         onPointerDown={event => event.stopPropagation()} onMouseDown={event => event.stopPropagation()} onClick={event => event.stopPropagation()}><div id={`${id}-panel`} className="dte-pop" role="dialog" data-window-drag-exclude=""
         aria-label={t(tail ? 'turnTimeTitle' : 'titleShort')} ref={panel}>
         <div className="dte-pop-head">
-          <span className="dte-pop-title"><ClockIcon state={snapshot?.state ?? 'idle'} />{t(tail ? 'turnTimeTitle' : 'titleShort')}</span>
+          <span className="dte-pop-title"><ClockIcon state={snapshot?.state ?? 'idle'} />{t(tail || terminal ? 'turnTimeTitle' : 'titleShort')}</span>
           <button type="button" ref={firstAction} className="dte-more" aria-label={t('more')} title={t('more')} aria-expanded={view !== 'summary'} aria-controls={`${id}-more`}
             onClick={() => setView(view === 'summary' ? 'more' : 'summary')}>
             <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="3" cy="8" r="1.2" fill="currentColor" /><circle cx="8" cy="8" r="1.2" fill="currentColor" /><circle cx="13" cy="8" r="1.2" fill="currentColor" /></svg>
