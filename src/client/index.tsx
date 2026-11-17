@@ -206,7 +206,9 @@ export function applyClient(ctx: Context): void {
     })();
     const partialToken = snapshot?.observedTokenStatus === 'partial';
     const partialCost = !!snapshot && (snapshot.observedCostStatus === 'partial' || snapshot.forecastCostStatus === 'partial');
-    const sourceTag = snapshot?.reasons.includes('estimator-model-plan') ? t('sourceEstimator')
+    const overrun = !!snapshot?.reasons.includes('initial-forecast-exceeded') || !!snapshot?.reasons.includes('plan-below-observed-effort');
+    const sourceTag = overrun ? t('sourceAdjusted')
+      : snapshot?.reasons.includes('estimator-model-plan') ? t('sourceEstimator')
       : snapshot?.reasons.includes('ai-workload-plan-reference') ? t('sourceAiPlan')
       : snapshot && (snapshot.localPerformanceSamples > 0 || snapshot.workloadSamples > 0) ? t('sourceLocal') : t('sourcePrior');
     // Three dimensions share one shape: spent is a fact, left and total are
@@ -247,7 +249,7 @@ export function applyClient(ctx: Context): void {
         fill: terminal ? 1 : progressShare(numericMoney(snapshot?.knownCost), costRemaining?.[0] ? Number(costRemaining[0].range.high) : null) },
     ];
     // The completion clock is what turns an estimate into a plan: "by when".
-    const finishClock = !terminal && validSpan(displayedRemaining) ? clockRange(displayedRemaining, now, localeSnapshot.active, t) : null;
+    const finishClock = !terminal && !overrun && validSpan(displayedRemaining) ? clockRange(displayedRemaining, now, localeSnapshot.active, t) : null;
     // The entry line has room for one time, so it prints the central one.
     const finishPoint = !terminal && validSpan(displayedRemaining)
       ? formatClock(now + (sessionRemaining !== null ? snapshot?.remainingTypicalMs ?? displayedRemaining.high : retained?.remainingTypicalMs ?? displayedRemaining.high), localeSnapshot.active, now, t)
@@ -285,6 +287,7 @@ export function applyClient(ctx: Context): void {
           <span className="dte-hero-caption">{heroCaption}</span>
           {snapshot && !terminal && !assessing && <span className="dte-tag dte-source">{sourceTag}</span>}
         </div>
+        {overrun && !terminal && <p className="dte-finish">{t('overrun')}</p>}
         {finishClock && <p className="dte-finish">{t('finishAt', { time: finishClock })}</p>}
         {doneClock && <p className="dte-finish">{t('finishedAt', { time: doneClock })}</p>}
         {snapshot && <EstimatorSwitch remote={remote} t={t} />}

@@ -238,7 +238,11 @@ export async function apply(ctx: Context, rawConfig: unknown): Promise<void> {
         // second model call; only long or still-unknown work asks the model.
         let highMs: number | null = null;
         try { highMs = engine.estimate(session.id, task, state.view.revision ?? 0).estimatedTotalMs?.high ?? null; } catch { highMs = null; }
-        if (highMs !== null && highMs < config.estimatorModel.minHighMs) return;
+        // A template can badly underestimate a large task, so the size gate also
+        // looks at what is visible about the work itself: a long prompt or a
+        // goal/program scope gets an estimate even when the early forecast is small.
+        const scaleSignal = (task.promptChars ?? 0) >= 1_200 || (task.workloadScale !== undefined && task.workloadScale !== 'task');
+        if (highMs !== null && highMs < config.estimatorModel.minHighMs && !scaleSignal) return;
         const plan = await requestEstimatorPlan(ctx, config.estimatorModel,
           { providerId: task.route?.providerId ?? null, modelId: task.route?.modelId ?? null }, text);
         if (plan) engine.setEstimatorPlan(session.id, turn, plan);

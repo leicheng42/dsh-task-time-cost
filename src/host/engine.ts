@@ -15,6 +15,7 @@ import type { PlanScenario, RequestBudget, WorkloadHistory, WorkloadPlan, Worklo
 import { estimateContinuation, estimateWorkloadTime } from '../shared/time.ts';
 import type { RequestProgress } from '../shared/time.ts';
 import { applyAiPlan } from '../shared/ai-plan.ts';
+import { forecastCorrection } from '../shared/forecast-guard.ts';
 import type { AiPlan, AiPlanInput } from '../shared/ai-plan.ts';
 import type { RouteIdentity, Span, TaskKind } from '../shared/types.ts';
 import type { BaselineRecord } from '../shared/baselines.ts';
@@ -41,6 +42,8 @@ export class EstimatorEngine {
   private readonly plans = new Map<string, { signature: string; plan: WorkloadPlan }>();
   /** Plans from the optional estimator model; memory only, never persisted. */
   private readonly estimatorPlans = new Map<string, AiPlan>();
+  /** Total first shown for a running turn; the anchor the overrun check needs even when nothing was saved yet. */
+  private readonly firstForecast = new Map<string, number>();
   private readonly latest = new Map<string, { revision: number; at: number; snapshot: EstimateSnapshot }>();
   private readonly currentInput = new Map<string, number | null>();
   private readonly initialInput = new Map<string, number | null>();
@@ -386,6 +389,19 @@ export class EstimatorEngine {
       typical = remaining ? (remaining.low + remaining.high) / 2 : null;
       reasons.push(remaining ? 'continuation-local-task-history' : 'continuation-history-insufficient');
     }
+    // A forecast has to survive contact with the clock: past the initial bound, or
+    // a plan that claims a small fraction of the time already spent, the honest
+    // answer is that the early number was wrong. See docs/DESIGN-0.4.md §3.
+    const initialHigh = this.firstForecast.get(key) ?? saved?.current.initial?.estimatedTotalMs?.high ?? null;
+    const correction = forecastCorrection({ elapsedActiveMs: elapsedActive, initialHighMs: initialHigh,
+      planRemainingHighMs: task.aiPlan ? remaining?.high ?? null : null, completedCalls: completedCount, currentRemainingHighMs: remaining?.high ?? null });
+    if (task.endedAt === null && correction.correct) {
+      const floorHigh = correction.floorHighMs;
+      const floorLow = Math.min(remaining?.low ?? 0, floorHigh);
+      remaining = { low: Math.max(floorLow, Math.min(floorHigh * 0.4, floorHigh)), high: floorHigh };
+      typical = (remaining.low + remaining.high) / 2;
+      reasons.push(...correction.reasons);
+    }
     // Historical duration can estimate time after plan exhaustion, but supplies
     // no future token/call budget from which to invent a complete cost forecast.
     if (task.endedAt === null && needsReplan) {
@@ -393,6 +409,7 @@ export class EstimatorEngine {
       // template as the remaining duration of a much larger ongoing task.
       remaining = null; typical = null; reasons.push('ai-plan-needs-refresh');
     }
+    if (task.endedAt === null && remaining && !this.firstForecast.has(key)) this.firstForecast.set(key, elapsedActive + remaining.high);
     const unknownFuture = task.endedAt === null && (remaining === null || planExhausted || needsReplan);
     const activeByRequest = new Map(active.map((attempt, index) => [`request-${completedCount + index + 1}`, attempt]));
     const projections = [plan.low, plan.high].map(scenario => {
@@ -594,7 +611,7 @@ export class EstimatorEngine {
     for (const key of this.startedHere) if (key.startsWith(`${sessionId}:`)) this.startedHere.delete(key);
   }
   dispose(): void {
-    this.flushPending(); this.runtime.clear(); this.latest.clear(); this.plans.clear(); this.estimatorPlans.clear(); this.currentInput.clear(); this.initialInput.clear();
+    this.flushPending(); this.runtime.clear(); this.latest.clear(); this.plans.clear(); this.estimatorPlans.clear(); this.firstForecast.clear(); this.currentInput.clear(); this.initialInput.clear();
     this.requestInputs.clear(); this.startedHere.clear(); this.unavailable.clear();
   }
 }

@@ -161,8 +161,15 @@ test('review/retained-eta: the last valid reference survives 140 unknown revisio
   for (let i = 0; i < 140; i++) { env.advance(1_000); env.engine.persist('review-session', current, i + 2); }
   const saved = env.repository.tasks.get('review-session:1')!;
   assert.equal(saved.revisions.length, 128);
-  assert.ok(saved.revisions.every(item => item.remainingMs === null));
-  assert.deepEqual(saved.lastForecast?.remainingMs, first.remainingMs);
+  // A plan that has been consumed leaves the remaining range unknown until the
+  // turn outlives its own first forecast; from then on the honest answer is a
+  // corrected range rather than an eternal "unknown" (docs/DESIGN-0.4.md §3).
+  const corrected = saved.revisions.filter(item => item.remainingMs !== null);
+  assert.ok(corrected.length > 0, 'an overrun is corrected instead of staying unknown');
+  assert.ok(corrected.every(item => item.reasons.includes('forecast-exceeded-observed-work')));
+  assert.ok(corrected.every(item => item.remainingMs!.high >= 60_000));
+  // The stored reference is the newest non-null forecast, which is now the corrected one.
+  assert.deepEqual(saved.lastForecast?.remainingMs, corrected.at(-1)!.remainingMs);
   await env.repository.flush(); await env.repository.close();
   const reopened = new Repository(message => env.logs.push(message), env.now); t.after(() => reopened.close());
   await reopened.open(env.facility);

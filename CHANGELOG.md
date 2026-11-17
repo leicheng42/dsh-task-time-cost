@@ -1,5 +1,14 @@
 # Changelog / 发行说明
 
+## 0.4.0 — a forecast that can be proven wrong, and says so
+
+Design rewrite first slice; full rationale in `docs/public/design.md`.
+
+- Add a correction rule: when the turn runs past its own first forecast, or a self-reported plan claims the remaining time is a small fraction of what was already spent, the panel switches to 已校正, hides a finish time that has already passed, and re-estimates the remaining range from observed effort (floored at half the elapsed time, never shrinking a wider range).
+- Anchor the overrun check on the first total shown for the turn, so it also works before anything was persisted.
+- The model estimate now triggers on visible scale (long prompt, goal/program scope), not only on the early forecast, so a badly underestimated long task still gets a model estimate.
+- Update the retained-reference contract test: an overrun now yields a corrected range instead of permanent "unknown".
+
 ## 0.3.6 — the model estimate is for long tasks, switched from the panel
 
 - Skip the estimator when the current forecast already says the task will finish within `minHighMs` (default five minutes): short work does not need a second model call, while long or still-unknown work is exactly where an early number helps.
