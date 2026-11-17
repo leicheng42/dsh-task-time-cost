@@ -90,6 +90,24 @@ export function applyClient(ctx: Context): void {
     </span>;
   }
 
+  /** Standard hover/focus hint: a portal near the element, clamped to the viewport. */
+  function Tooltip({ text: tip, children }: { text: string; children: React.ReactNode }) {
+    const anchor = React.useRef<HTMLSpanElement>(null);
+    const [position, setPosition] = React.useState<{ left: number; top: number; above: boolean } | null>(null);
+    const show = () => {
+      const element = anchor.current;
+      if (!element) return;
+      const box = element.getBoundingClientRect();
+      const above = box.top > 120;
+      setPosition({ left: Math.min(Math.max(box.left + box.width / 2, 140), window.innerWidth - 140), top: above ? box.top - 10 : box.bottom + 10, above });
+    };
+    const hide = () => setPosition(null);
+    return <span ref={anchor} className="dte-tip" tabIndex={0} onMouseEnter={show} onMouseLeave={hide} onFocus={show} onBlur={hide}>
+      {children}
+      {position && createPortal(<span className="dte-tip-card" role="tooltip" style={{ left: position.left, top: position.top, transform: `translate(-50%, ${position.above ? '-100%' : '0'})` }}>{tip}</span>, document.body)}
+    </span>;
+  }
+
   function EstimateWidget({ props, tail }: { props: SlotProps; tail: boolean }) {
     const localeSnapshot = React.useSyncExternalStore(subscribeLocale, readLocale, readLocale);
     const marker = readMarker(props.useProjection('taskEstimator'));
@@ -178,7 +196,7 @@ export function applyClient(ctx: Context): void {
     // One sentence answers "should I keep waiting"; the number is evidence inside it.
     function showsStatusNumber(state: ProgressState): boolean { return state !== 'done' && state !== 'starting' && state !== 'unknown'; }
     const statusLabel: Record<ProgressState, string> = {
-      done: t('stateDone', { elapsed }), starting: t('stateStarting'), unknown: t('stateUnknown'),
+      done: t('stateDone', { elapsed }), starting: t('stateStarting'), unknown: t('stateUnknown', { elapsed }),
       finishing: t('stateFinishing', { value: range }), faster: t('stateFaster', { value: range }),
       slower: t('stateSlower', { value: range }), onTrack: t('stateOnTrack', { value: range }),
     };
@@ -281,7 +299,7 @@ export function applyClient(ctx: Context): void {
             <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="3" cy="8" r="1.2" fill="currentColor" /><circle cx="8" cy="8" r="1.2" fill="currentColor" /><circle cx="13" cy="8" r="1.2" fill="currentColor" /></svg>
           </button>
         </div>
-        <p className={showsNumber ? 'dte-status dte-tabular' : 'dte-status dte-status-plain'}>{statusText}</p>
+        <Tooltip text={t('tipStatus')}><p className={showsNumber ? 'dte-status dte-tabular' : 'dte-status dte-status-plain'}>{statusText}</p></Tooltip>
         {progress.state !== 'done' && progress.state !== 'starting' && (finishClock
           ? <p className="dte-finish">{t('finishAt', { time: finishClock })}</p>
           : <p className="dte-finish dte-muted">{t('noFinishTime')}</p>)}
@@ -291,24 +309,18 @@ export function applyClient(ctx: Context): void {
           const buckets = snapshot.activity ?? [];
           const quiet = buckets.every(value => value === 0);
           const max = Math.max(...buckets, 1);
-          return <div className="dte-activity" role="img" aria-label={activityPlain}>
-            <span className="dte-activity-counts dte-tabular">{t('activityCounts', { calls: formatNumber(snapshot.calls.completed, localeSnapshot.active, t), steps: formatNumber(snapshot.tools.completed, localeSnapshot.active, t) })}</span>
-            {quiet
-              ? <span className="dte-activity-quiet">{t('activityQuiet')}</span>
-              : <span className="dte-activity-band" aria-hidden="true">{buckets.map((value, index) => <i key={index} style={{ height: `${Math.max(12, Math.round(value / max * 100))}%` }} />)}</span>}
-          </div>;
+          return <Tooltip text={t('tipActivity', { calls: formatNumber(snapshot.calls.completed, localeSnapshot.active, t), steps: formatNumber(snapshot.tools.completed, localeSnapshot.active, t) })}>
+            <div className="dte-activity" role="img" aria-label={t('activityLabel')}>
+              <span className="dte-activity-quiet">{quiet ? t('activityQuiet') : t('activityRecent')}</span>
+              {!quiet && <span className="dte-activity-band" aria-hidden="true">{buckets.map((value, index) => <i key={index} style={{ height: `${Math.max(12, Math.round(value / max * 100))}%` }} />)}</span>}
+            </div>
+          </Tooltip>;
         })()}
-        {snapshot && <p className="dte-facts dte-tabular">
+        {snapshot && <Tooltip text={t('tipFacts')}><p className="dte-facts dte-tabular">
           <span>{t('factUsed')}<b>{elapsed}</b></span>
           <span>{costUsed}</span>
           <span>{tokenUsed}</span>
-        </p>}
-        {snapshot && <button type="button" className="dte-help-toggle" aria-expanded={showHelp} onClick={() => setShowHelp(value => !value)}>{t('helpToggle')}</button>}
-        {showHelp && <dl className="dte-help">
-          <div><dt>{t('helpRangeTitle')}</dt><dd>{t('hintRange')}</dd></div>
-          <div><dt>{t('helpActivityTitle')}</dt><dd>{activityPlain}</dd></div>
-          <div><dt>{t('helpFactsTitle')}</dt><dd>{t('hintFacts')}</dd></div>
-        </dl>}
+        </p></Tooltip>}
         {footnote && <p className="dte-footnote">{footnote}</p>}
         {state.error && <p className="dte-error dte-small" role="alert">{errorText(state.error, t)}</p>}
         <div id={`${id}-more`} className="dte-pop-actions" hidden={view === 'summary'}>
