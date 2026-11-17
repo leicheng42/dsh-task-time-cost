@@ -82,14 +82,6 @@ export function applyClient(ctx: Context): void {
   const subscribeLocale = (listener: () => void) => locale.subscribe(listener);
   const readLocale = () => locale.getSnapshot();
 
-  /** A small "what is this?" marker: native title plus an accessible popover on hover/focus. */
-  function Hint({ id, text, label }: { id: string; text: string; label: string }) {
-    return <span className="dte-hint-wrap">
-      <button type="button" className="dte-hint" aria-label={label} aria-describedby={id} data-hint={text} onClick={event => event.stopPropagation()}>?</button>
-      <span className="dte-hint-bubble" id={id} role="tooltip">{text}</span>
-    </span>;
-  }
-
   /** Standard hover/focus hint: a portal near the element, clamped to the viewport. */
   function Tooltip({ text: tip, children }: { text: string; children: React.ReactNode }) {
     const anchor = React.useRef<HTMLSpanElement>(null);
@@ -189,7 +181,7 @@ export function applyClient(ctx: Context): void {
     const line = tail || terminal ? t('doneElapsed', { elapsed })
       : assessing ? t('assessing')
       : (active && sessionRemaining !== null || retained) ? t(retained ? 'etaRetained' : initialScope ? 'etaInitial' : snapshot?.forecastScope === 'whole_goal' ? 'etaGoal' : 'etaEstimate', { value: eta })
-      : active ? t('computingShort') : t('titleShort');
+      : active && snapshot ? t('lineElapsed', { elapsed }) : t('titleShort');
     const progress = progressState({ ended: terminal, elapsedMs: snapshot?.elapsedActiveMs ?? 0,
       remainingHighMs: validSpan(displayedRemaining) ? displayedRemaining.high : null,
       trail: (snapshot?.forecastTrail ?? []).map(point => point.highMs), completedCalls: snapshot?.calls.completed ?? 0 });
@@ -266,7 +258,9 @@ export function applyClient(ctx: Context): void {
     };
     const costRemaining = snapshot ? remainingCostRanges(snapshot) : null;
     // The completion clock is what turns an estimate into a plan: "by when".
-    const finishClock = !terminal && validSpan(displayedRemaining) ? clockRange(displayedRemaining, now, localeSnapshot.active, t) : null;
+    // A very wide band turned into two clock times is noise; show the sentence only.
+    const clockWorthIt = !!displayedRemaining && displayedRemaining.high / Math.max(displayedRemaining.low, 1) <= 4;
+    const finishClock = !terminal && validSpan(displayedRemaining) && clockWorthIt ? clockRange(displayedRemaining, now, localeSnapshot.active, t) : null;
     // The entry line has room for one time, so it prints the central one.
     const finishPoint = !terminal && validSpan(displayedRemaining)
       ? formatClock(now + (sessionRemaining !== null ? snapshot?.remainingTypicalMs ?? displayedRemaining.high : retained?.remainingTypicalMs ?? displayedRemaining.high), localeSnapshot.active, now, t)

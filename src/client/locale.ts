@@ -47,6 +47,7 @@ export const en = {
   tipActivity: 'Activity in the last minute: fuller bars mean busier. All empty usually means the turn is waiting on the model. So far: {calls} model rounds and {steps} tool calls.',
   activityRecent: 'last minute',
   calibrationLine: 'Accuracy record: {samples} finished turns, median actual/first-estimate {ratio}×, {low} came in above the first estimate.',
+  lineElapsed: '{elapsed} so far',
   tipFacts: 'Used is real elapsed time. USD is a public catalogue reference price, not a bill. The last figure counts Tokens spent so far.',
   noFinishTime: 'No finish time yet', estimateStale: 'Earlier estimate expired, work continues', bandNote: 'Range inferred from the time already spent',
   activityLabel: 'Activity in the last minute', activityQuiet: 'no activity in the last minute', activityCounts: 'round {calls} · step {steps}',
@@ -315,7 +316,7 @@ export type MessageKey = keyof typeof en;
 export type Translate = (key: MessageKey, params?: Record<string, string | number>) => string;
 
 export const zh: Record<MessageKey, string> = {
-  title: '任务耗时与费用预估', titleShort: '耗时预估', turnTimeTitle: '本轮用时',
+  title: '任务耗时与费用预估', titleShort: '还要多久', turnTimeTitle: '本轮用时',
   retainedForecastHint: '正在更新，暂用 {time} 的预估参考。',
   tokenRemainingOutput: '预计剩余输出 Token', tokenRemainingNote: '包含可见输出和工具参数，不含隐藏推理与重复输入。',
   more: '更多预估选项', aboutDuration: '约{value}', etaRetained: '上次 {value}', etaInitial: '初估 {value}', etaGoal: '目标预计 {value}',
@@ -355,6 +356,7 @@ export const zh: Record<MessageKey, string> = {
   tipActivity: '最近一分钟的动静：格子越满越忙，全空通常是在等模型。本轮已完成 {calls} 个模型回合、{steps} 次工具调用。',
   activityRecent: '最近一分钟',
   calibrationLine: '误差账本：已统计 {samples} 个完成的回合，实测/初估中位 {ratio} 倍，其中 {low} 个超出初估。',
+  lineElapsed: '已经 {elapsed}',
   tipFacts: '已用是实际流逝的时间；USD 是公开目录参考价，不是账单；最后一列是已消耗的 Token。',
   noFinishTime: '尚未能给出完成时间', estimateStale: '预估已失效，但仍在推进', bandNote: '区间按已用时间推算',
   activityLabel: '最近一分钟的活动密度', activityQuiet: '最近一分钟无活动（可能在等模型）', activityCounts: '第 {calls} 轮 · {steps} 步',
