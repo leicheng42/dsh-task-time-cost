@@ -95,7 +95,9 @@ export function applyClient(ctx: Context): void {
       const element = anchor.current;
       if (!element) return;
       const box = element.getBoundingClientRect();
-      const above = box.top > 120;
+      // Flip below when the card would collide with the top edge; a tooltip that
+      // jumps is better than one that is cut off.
+      const above = box.top > 120 && box.top - 90 > 8;
       setPosition({ left: Math.min(Math.max(box.left + box.width / 2, 140), window.innerWidth - 140), top: above ? box.top - 10 : box.bottom + 10, above });
     };
     const hide = () => setPosition(null);
@@ -110,7 +112,7 @@ export function applyClient(ctx: Context): void {
       onBlur: hide,
     } as Record<string, unknown>);
     return <>{decorated}
-      {position && createPortal(<span className="dte"><span className="dte-tip-card" role="tooltip" style={{ left: position.left, top: position.top, transform: `translate(-50%, ${position.above ? '-100%' : '0'})` }}>{tip}</span></span>, document.body)}
+      {position && createPortal(<span className="dte-tip-card" role="tooltip" style={{ left: position.left, top: position.top, transform: `translate(-50%, ${position.above ? '-100%' : '0'})` }}>{tip}</span>, document.body)}
     </>;
   }
 
