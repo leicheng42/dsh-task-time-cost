@@ -11,8 +11,20 @@ export const ESTIMATOR_REPLY_LIMIT = 2_000;
  * numeric contract. It never asks for prose, so the reply can be parsed and
  * discarded without retaining anything the user wrote.
  */
-export function buildEstimatorPrompt(taskText: string): string {
+export interface EstimatorContext { elapsedMs: number; completedCalls: number; refresh: boolean }
+export function buildEstimatorPrompt(taskText: string, context?: EstimatorContext): string {
   const text = taskText.trim().slice(0, ESTIMATOR_PROMPT_LIMIT);
+  if (context?.refresh) {
+    return [
+      'You estimate how much work REMAINS in a software task that is already running.',
+      `Observed so far: ${Math.round(context.elapsedMs / 60_000)} minutes elapsed, ${context.completedCalls} model rounds completed.`,
+      'Answer with one JSON object and nothing else, using these integer keys:',
+      '{"remainingCalls":{"low":N,"high":N},"remainingOutputTokens":{"low":N,"high":N},"remainingToolSeconds":{"low":N,"high":N},"stage":"planning|implementation|verification|finishing","scope":"current_turn"}',
+      'remainingCalls counts model rounds still needed FROM NOW (1-500). Do not repeat the work already done.',
+      'Task:',
+      text,
+    ].join('\n');
+  }
   return [
     'You estimate the remaining work of a software task that another AI agent is about to execute.',
     'Answer with one JSON object and nothing else, using these integer keys:',

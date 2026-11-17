@@ -16,6 +16,7 @@ import { estimateContinuation, estimateWorkloadTime } from '../shared/time.ts';
 import type { RequestProgress } from '../shared/time.ts';
 import { applyAiPlan } from '../shared/ai-plan.ts';
 import { forecastCorrection } from '../shared/forecast-guard.ts';
+import { initialBandFallback } from '../shared/fallback-band.ts';
 import { forecastConfidence, rangeRatio } from '../shared/confidence.ts';
 import type { AiPlan, AiPlanInput } from '../shared/ai-plan.ts';
 import type { RouteIdentity, Span, TaskKind } from '../shared/types.ts';
@@ -45,6 +46,9 @@ export class EstimatorEngine {
   private readonly estimatorPlans = new Map<string, AiPlan>();
   /** Total first shown for a running turn; the anchor the overrun check needs even when nothing was saved yet. */
   private readonly firstForecast = new Map<string, number>();
+  /** Estimates produced by a refresh request once a plan ran out; memory only. */
+  private readonly refreshedRemaining = new Map<string, { low: number; high: number; at: number }>();
+  private readonly refreshAttempts = new Map<string, number>();
   /** Recent remaining bounds for the panel trail; memory only. */
   private readonly forecastTrail = new Map<string, Array<{ at: number; highMs: number }>>();
   private readonly latest = new Map<string, { revision: number; at: number; snapshot: EstimateSnapshot }>();
@@ -206,6 +210,19 @@ export class EstimatorEngine {
       const standard = DEFAULT_TEMPLATES.find(candidate => candidate.kind === template.kind);
       return JSON.stringify(configured) === JSON.stringify(standard) ? template : structuredClone(configured);
     });
+  }
+  /** True when a running turn is worth a fresh estimate from the model. */
+  needsRefresh(sessionId: string, turn: number): boolean {
+    const key = `${sessionId}:${turn}`;
+    const attempted = this.refreshAttempts.get(key) ?? 0;
+    return Date.now() - attempted > 10 * 60_000;
+  }
+  markRefreshAttempt(sessionId: string, turn: number): void { this.refreshAttempts.set(`${sessionId}:${turn}`, Date.now()); }
+  setRefreshedRemaining(sessionId: string, turn: number, span: { low: number; high: number }): void {
+    const key = `${sessionId}:${turn}`;
+    const low = Math.max(30_000, Math.round(span.low));
+    this.refreshedRemaining.set(key, { low, high: Math.max(low * 2, Math.round(span.high)), at: Date.now() });
+    this.plans.delete(key);
   }
   /** Store a plan from the estimator model; the executing agent's own plan always wins. */
   setEstimatorPlan(sessionId: string, turn: number, plan: AiPlanInput): void {
@@ -391,6 +408,23 @@ export class EstimatorEngine {
         activeRequests: activeCount, history, minSamples: this.config.minConditionalSamples });
       typical = remaining ? (remaining.low + remaining.high) / 2 : null;
       reasons.push(remaining ? 'continuation-local-task-history' : 'continuation-history-insufficient');
+    }
+    // A plan that outlived its own request budget is the common reason a long
+    // turn shows "no estimate". Prefer a refreshed estimate, then fall back to
+    // the remainder of the initial band instead of returning nothing.
+    const refreshed = this.refreshedRemaining.get(key);
+    if (task.endedAt === null && refreshed && now - refreshed.at < 15 * 60_000 && (remaining === null || refreshed.low > remaining.low)) {
+      remaining = { low: refreshed.low, high: refreshed.high };
+      typical = (remaining.low + remaining.high) / 2;
+      reasons.push('estimator-refreshed-estimate');
+    } else if (task.endedAt === null && remaining === null) {
+      const initialSpan = saved?.current.initial?.estimatedTotalMs ?? (this.firstForecast.has(key) ? { low: 0, high: this.firstForecast.get(key)! } : null);
+      const band = initialBandFallback(initialSpan, elapsedActive);
+      if (band) {
+        remaining = { low: band.low, high: band.high };
+        typical = (remaining.low + remaining.high) / 2;
+        reasons.push(band.reason);
+      }
     }
     // A forecast has to survive contact with the clock: past the initial bound, or
     // a plan that claims a small fraction of the time already spent, the honest
@@ -633,7 +667,7 @@ export class EstimatorEngine {
     for (const key of this.startedHere) if (key.startsWith(`${sessionId}:`)) this.startedHere.delete(key);
   }
   dispose(): void {
-    this.flushPending(); this.runtime.clear(); this.latest.clear(); this.plans.clear(); this.estimatorPlans.clear(); this.firstForecast.clear(); this.forecastTrail.clear(); this.currentInput.clear(); this.initialInput.clear();
+    this.flushPending(); this.runtime.clear(); this.latest.clear(); this.plans.clear(); this.estimatorPlans.clear(); this.firstForecast.clear(); this.forecastTrail.clear(); this.refreshedRemaining.clear(); this.refreshAttempts.clear(); this.currentInput.clear(); this.initialInput.clear();
     this.requestInputs.clear(); this.startedHere.clear(); this.unavailable.clear();
   }
 }

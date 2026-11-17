@@ -36,7 +36,7 @@ interface StreamService {
  */
 export async function requestEstimatorPlan(
   ctx: Context, settings: EstimatorModelSettings, sessionRoute: { providerId: string | null; modelId: string | null },
-  taskText: string, parent?: AbortSignal,
+  taskText: string, context?: { elapsedMs: number; completedCalls: number; refresh: boolean }, parent?: AbortSignal,
 ): Promise<AiPlanInput | null> {
   if (!taskText.trim()) return null;
   const llm = ctx.get('llm') as StreamService | undefined;
@@ -53,7 +53,7 @@ export async function requestEstimatorPlan(
   try {
     const stream = llm.stream({
       provider: route.provider, model: route.model, purpose: 'task-estimate',
-      messages: [{ role: 'user', content: [{ type: 'text', text: buildEstimatorPrompt(taskText) }] }],
+      messages: [{ role: 'user', content: [{ type: 'text', text: buildEstimatorPrompt(taskText, context) }] }],
       signal: controller.signal, maxTokens: 400, temperature: 0,
     });
     for await (const chunk of stream) {

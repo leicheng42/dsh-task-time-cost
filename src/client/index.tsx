@@ -264,13 +264,17 @@ export function applyClient(ctx: Context): void {
           : <p className="dte-finish dte-muted">{t('noFinishTime')}</p>)}
         {progress.state === 'done' && doneClock && <p className="dte-finish">{t('finishedAt', { time: doneClock })}</p>}
         {overrun && progress.state !== 'done' && <p className="dte-finish dte-muted">{t('estimateStale')}</p>}
-        {snapshot && !terminal && <div className="dte-activity" role="img" aria-label={t('activityLabel')}>
-          <span className="dte-activity-counts dte-tabular">{t('activityCounts', { calls: formatNumber(snapshot.calls.completed, localeSnapshot.active, t), steps: formatNumber(snapshot.tools.completed, localeSnapshot.active, t) })}</span>
-          <span className="dte-activity-band" aria-hidden="true">{(snapshot.activity ?? []).map((value, index) => {
-            const max = Math.max(...(snapshot.activity ?? [1]), 1);
-            return <i key={index} style={{ height: `${Math.max(10, Math.round(value / max * 100))}%` }} />;
-          })}</span>
-        </div>}
+        {snapshot && !terminal && (() => {
+          const buckets = snapshot.activity ?? [];
+          const quiet = buckets.every(value => value === 0);
+          const max = Math.max(...buckets, 1);
+          return <div className="dte-activity" role="img" aria-label={t('activityLabel')}>
+            <span className="dte-activity-counts dte-tabular">{t('activityCounts', { calls: formatNumber(snapshot.calls.completed, localeSnapshot.active, t), steps: formatNumber(snapshot.tools.completed, localeSnapshot.active, t) })}</span>
+            {quiet
+              ? <span className="dte-activity-quiet">{t('activityQuiet')}</span>
+              : <span className="dte-activity-band" aria-hidden="true">{buckets.map((value, index) => <i key={index} style={{ height: `${Math.max(12, Math.round(value / max * 100))}%` }} />)}</span>}
+          </div>;
+        })()}
         {snapshot && <p className="dte-facts dte-tabular">
           <span>{t('factUsed')}<b>{elapsed}</b></span>
           <span>{costUsed}</span>

@@ -201,6 +201,7 @@ export async function apply(ctx: Context, rawConfig: unknown): Promise<void> {
   const taskTexts = new Map<string, string>();
   const estimatorRequested = new Set<string>();
   const estimatorTimers = new Set<ReturnType<typeof setTimeout>>();
+  const refreshTimers = new Map<string, ReturnType<typeof setTimeout>>();
   function readUserText(data: unknown): string | null {
     if (!data || typeof data !== 'object' || !('content' in data)) return null;
     const content = (data as { content?: unknown }).content;
@@ -213,6 +214,44 @@ export async function apply(ctx: Context, rawConfig: unknown): Promise<void> {
     }
     const joined = parts.join('\n').trim();
     return joined ? joined.slice(0, ESTIMATOR_PROMPT_LIMIT) : null;
+  }
+  /**
+   * A plan can run out mid-turn (the agent did more rounds than it predicted),
+   * and then nothing estimates the rest. Every few minutes, while the turn is
+   * still running and no estimate exists, ask the model once what remains.
+   */
+  function startRefreshLoop(session: Session, turn: number): void {
+    const key = `${session.id}:${turn}`;
+    if (refreshTimers.has(key)) return;
+    const tick = () => {
+      refreshTimers.delete(key);
+      const state = projection.stateOf(session);
+      const task = state.tasks[String(turn)];
+      if (!task || task.endedAt !== null) return;
+      let snapshot: ReturnType<typeof engine.estimate> | null = null;
+      try { snapshot = engine.estimate(session.id, task, state.view.revision ?? 0); } catch { snapshot = null; }
+      const elapsed = snapshot?.elapsedActiveMs ?? 0;
+      if (snapshot && !snapshot.remainingMs && elapsed > 5 * 60_000 && engine.needsRefresh(session.id, turn)) {
+        const text = taskTexts.get(session.id);
+        const avgRound = elapsed / Math.max(1, snapshot.calls.completed);
+        if (text) {
+          engine.markRefreshAttempt(session.id, turn);
+          void (async () => {
+            const plan = await requestEstimatorPlan(ctx, config.estimatorModel,
+              { providerId: task.route?.providerId ?? null, modelId: task.route?.modelId ?? null }, text,
+              { elapsedMs: elapsed, completedCalls: snapshot!.calls.completed, refresh: true });
+            if (!plan) return;
+            const low = plan.remainingCalls.low * avgRound * 0.6 + plan.remainingToolSeconds.low * 1_000;
+            const high = plan.remainingCalls.high * avgRound * 1.8 + plan.remainingToolSeconds.high * 1_000;
+            engine.setRefreshedRemaining(session.id, turn, { low: Math.max(60_000, low), high: Math.max(120_000, high) });
+          })().catch(() => undefined);
+        }
+      }
+      const timer = setTimeout(tick, 5 * 60_000);
+      refreshTimers.set(key, timer);
+    };
+    const first = setTimeout(tick, 5 * 60_000);
+    refreshTimers.set(key, first);
   }
   function observeEstimatorInput(session: Session, event: { type: string; data: unknown }): void {
     if (event.type === 'user/message') {
@@ -249,8 +288,9 @@ export async function apply(ctx: Context, rawConfig: unknown): Promise<void> {
       })().catch(() => undefined);
     }, config.estimatorModel.delayMs);
     estimatorTimers.add(timer);
+    startRefreshLoop(session, turn);
   }
-  ctx.effect(() => () => { for (const timer of estimatorTimers) clearTimeout(timer); estimatorTimers.clear(); taskTexts.clear(); estimatorRequested.clear(); });
+  ctx.effect(() => () => { for (const timer of estimatorTimers) clearTimeout(timer); estimatorTimers.clear(); for (const timer of refreshTimers.values()) clearTimeout(timer); refreshTimers.clear(); taskTexts.clear(); estimatorRequested.clear(); });
   ctx.on('session/event', (session, event) => {
     if (config.estimatorModel.enabled) observeEstimatorInput(session, event);
     const agent = ctx.agents.get(session.id);

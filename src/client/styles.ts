@@ -115,6 +115,7 @@ export const styles = `
 .dte .dte-activity-counts{color:var(--dsw-alias-label-tertiary);font-size:11px;white-space:nowrap}
 .dte .dte-activity-band{display:flex;align-items:flex-end;gap:2px;height:16px;flex:1;min-width:0}
 .dte .dte-activity-band i{flex:1;min-width:3px;border-radius:2px;background:color-mix(in srgb,var(--dsw-alias-brand-primary) 55%,transparent)}
+.dte .dte-activity-quiet{color:var(--dsw-alias-label-tertiary);font-size:11px;flex:1}
 .dte .dte-facts{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin:14px 0 0;color:var(--dsw-alias-label-secondary);font-size:12px}
 .dte .dte-facts b{color:var(--dsw-alias-label-primary);font-weight:600;margin-left:3px}
 .dte .dte-metrics{display:flex;flex-direction:column;gap:14px;margin:16px 0 0}

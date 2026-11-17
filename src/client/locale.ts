@@ -33,7 +33,7 @@ export const en = {
   stateFaster: 'Faster than expected, {value} left', stateSlower: 'Slower than expected, {value} left',
   stateOnTrack: 'On track, {value} left',
   noFinishTime: 'No finish time yet', estimateStale: 'Earlier estimate expired, work continues',
-  activityLabel: 'Activity in the last minute', activityCounts: 'round {calls} · step {steps}',
+  activityLabel: 'Activity in the last minute', activityQuiet: 'no activity in the last minute', activityCounts: 'round {calls} · step {steps}',
 
   confidenceCalibrated: 'calibrating',
   trailCaption: 'estimate trail',
@@ -325,7 +325,7 @@ export const zh: Record<MessageKey, string> = {
   stateFaster: '比预估快，剩 {value}', stateSlower: '比预估慢，剩 {value}',
   stateOnTrack: '正常推进，剩 {value}',
   noFinishTime: '尚未能给出完成时间', estimateStale: '预估已失效，但仍在推进',
-  activityLabel: '最近一分钟的活动密度', activityCounts: '第 {calls} 轮 · {steps} 步',
+  activityLabel: '最近一分钟的活动密度', activityQuiet: '最近一分钟无活动（可能在等模型）', activityCounts: '第 {calls} 轮 · {steps} 步',
 
   confidenceCalibrated: '校准中',
   trailCaption: '预估轨迹',
