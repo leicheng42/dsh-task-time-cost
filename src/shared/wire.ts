@@ -62,8 +62,10 @@ export interface EstimateSnapshot {
   confidence?: 'assessing' | 'preliminary' | 'calibrated' | 'stable';
   /** Finished turns compared against their first estimate; the honest accuracy record. */
   calibration?: { samples: number; medianRatio: number | null; underestimated: number };
-  /** Goal-level plan: rounds left, observed round durations, and the range they imply. */
-  goalPlan?: { roundsLeft: number; observed: number; medianRoundMs: number | null; lowMs: number | null; highMs: number | null; started: number; max: number; spentMs: number; turns: number };
+  /** Model answer for the whole goal: remaining active time, never a round-count product. */
+  goalForecast?: { lowMs: number; highMs: number; at: number };
+  /** Active time this goal has already spent, including the running round. */
+  goalSpentMs?: number;
   /** Goal round budget, when this turn belongs to a goal. */
   goalRounds?: { started: number; max: number };
   /** Opaque goal identity; used to group rounds, never rendered. */

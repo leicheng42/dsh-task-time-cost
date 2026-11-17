@@ -24,7 +24,7 @@ import { descriptors } from '../shared/remote-contract.ts';
 import { retainedTimeForecast } from '../shared/retained-time.ts';
 import { ObserverMetrics } from './metrics.ts';
 import { observeHumanWaits } from './user-wait.ts';
-import { requestEstimatorPlan } from './estimator-model.ts';
+import { requestEstimatorPlan, requestGoalPlan } from './estimator-model.ts';
 import { ESTIMATOR_PROMPT_LIMIT } from '../shared/estimator-model.ts';
 import { Config, validatePluginConfig } from './config.ts';
 import type { PluginConfig } from './config.ts';
@@ -202,6 +202,9 @@ export async function apply(ctx: Context, rawConfig: unknown): Promise<void> {
   const estimatorRequested = new Set<string>();
   const estimatorTimers = new Set<ReturnType<typeof setTimeout>>();
   const refreshTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  /** Goal objective text, kept in memory only: it is never written to storage. */
+  const goalTexts = new Map<string, string>();
+  const goalForecastInFlight = new Set<string>();
   function readUserText(data: unknown): string | null {
     if (!data || typeof data !== 'object' || !('content' in data)) return null;
     const content = (data as { content?: unknown }).content;
@@ -244,6 +247,38 @@ export async function apply(ctx: Context, rawConfig: unknown): Promise<void> {
       engine.setRefreshedRemaining(session.id, turn, { low: Math.max(60_000, low), high: Math.max(120_000, high) });
     })().catch(() => undefined);
   }
+  function observeGoalObjective(event: { type: string; data: unknown }): void {
+    if (event.type !== 'goal/change') return;
+    const data = event.data as { operation?: string; goal?: { id?: string; objective?: string } } | null;
+    if (!data || typeof data !== 'object') return;
+    if (data.operation === 'clear') { goalTexts.clear(); return; }
+    const id = data.goal?.id;
+    const objective = data.goal?.objective;
+    if (typeof id === 'string' && typeof objective === 'string' && objective.trim()) goalTexts.set(id, objective.trim());
+  }
+
+  async function attemptGoalForecast(session: Session): Promise<void> {
+    const state = projection.stateOf(session);
+    const goal = state.goal;
+    if (!goal || goal.phase !== 'active') return;
+    const text = goalTexts.get(goal.id);
+    if (!text || goalForecastInFlight.has(goal.id)) return;
+    const rounds = Object.values(state.tasks).filter(task => task.goalId === goal.id);
+    const finished = rounds.filter(task => task.endedAt !== null);
+    if (finished.length === 0) return;
+    const now = Date.now();
+    const elapsedMs = rounds.reduce((sum, task) => sum + Math.max(0, (task.endedAt ?? now) - task.startedAt), 0);
+    const toolsDone = rounds.reduce((sum, task) => sum + Object.keys(task.tools).length, 0);
+    goalForecastInFlight.add(goal.id);
+    try {
+      const plan = await requestGoalPlan(ctx, config.estimatorModel,
+        { providerId: finished[finished.length - 1]?.route?.providerId ?? null, modelId: finished[finished.length - 1]?.route?.modelId ?? null },
+        text, { elapsedMs, roundsDone: finished.length, toolsDone, previous: engine.goalForecastOf(goal.id) });
+      if (plan) engine.setGoalForecast(goal.id, plan.lowMs, plan.highMs);
+    } catch { /* a failed goal estimate leaves the previous one in place */ }
+    finally { goalForecastInFlight.delete(goal.id); }
+  }
+
   function startRefreshLoop(session: Session, turn: number): void {
     const key = `${session.id}:${turn}`;
     if (refreshTimers.has(key)) return;
@@ -306,9 +341,12 @@ export async function apply(ctx: Context, rawConfig: unknown): Promise<void> {
     estimatorTimers.add(timer);
     startRefreshLoop(session, turn);
   }
-  ctx.effect(() => () => { for (const timer of estimatorTimers) clearTimeout(timer); estimatorTimers.clear(); for (const timer of refreshTimers.values()) clearTimeout(timer); refreshTimers.clear(); taskTexts.clear(); estimatorRequested.clear(); });
+  ctx.effect(() => () => { for (const timer of estimatorTimers) clearTimeout(timer); estimatorTimers.clear(); for (const timer of refreshTimers.values()) clearTimeout(timer); refreshTimers.clear(); taskTexts.clear(); estimatorRequested.clear(); goalTexts.clear(); goalForecastInFlight.clear(); });
   ctx.on('session/event', (session, event) => {
     if (config.estimatorModel.enabled) observeEstimatorInput(session, event);
+    observeGoalObjective(event);
+    // A finished round is the natural moment to re-ask how much of the goal is left.
+    if (config.estimatorModel.enabled && event.type === 'turn/end') setTimeout(() => { void attemptGoalForecast(session); }, 2_000);
     if (config.estimatorModel.enabled && !refreshTimers.has(`${session.id}:${projection.stateOf(session).currentTurn ?? ''}`)) observeRunningTurn(session);
     const agent = ctx.agents.get(session.id);
     safe(agent, () => {

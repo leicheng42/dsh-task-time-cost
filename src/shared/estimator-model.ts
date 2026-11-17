@@ -78,3 +78,58 @@ export function resolveEstimatorRoute(
     ?? providers.find(candidate => candidate.id.toLowerCase().startsWith(providerId.toLowerCase()) || providerId.toLowerCase().startsWith(candidate.id.toLowerCase()));
   return loose ? { provider: loose.id, model: modelId, source: 'session-route' } : null;
 }
+
+/** Bounded facts about goal progress; no code, no file names, no prompt text. */
+export interface GoalContext {
+  elapsedMs: number;
+  roundsDone: number;
+  toolsDone: number;
+  /** The previous model answer for this goal, so a fresh answer cannot swing wildly. */
+  previous?: { lowMs: number; highMs: number } | null;
+}
+
+const GOAL_MINUTE_LIMIT = 7 * 24 * 60;
+
+export function buildGoalPrompt(goalText: string, context: GoalContext): string {
+  const text = goalText.trim().slice(0, ESTIMATOR_PROMPT_LIMIT);
+  const spent = Math.max(0, Math.round(context.elapsedMs / 60_000));
+  const previous = context.previous
+    ? `Previous estimate for this goal: ${Math.round(context.previous.lowMs / 60_000)}-${Math.round(context.previous.highMs / 60_000)} minutes.`
+    : 'No previous estimate for this goal.';
+  return [
+    'You estimate how much longer a whole goal will take an AI agent, measured in minutes of active work.',
+    'A goal runs over many rounds; each round ends and the next one continues the same objective.',
+    `Observed so far: ${spent} minutes of active work, ${context.roundsDone} rounds finished, ${context.toolsDone} tool calls completed.`,
+    previous,
+    'Answer with one JSON object and nothing else:',
+    '{"remainingMinutes":{"low":N,"high":N}}',
+    'Use whole minutes. low must be >= 1 and <= high; both must be <= 10080. Judge the work that is still missing, not the work already done, and keep the range wide when the goal is vague.',
+    'Goal:',
+    text,
+  ].join('\n');
+}
+
+export interface GoalPlan {
+  lowMs: number;
+  highMs: number;
+}
+
+/** Accept only a complete in-range minute range; nothing else survives. */
+export function parseGoalPlan(raw: string): GoalPlan | null {
+  if (typeof raw !== 'string' || raw.length === 0 || raw.length > ESTIMATOR_REPLY_LIMIT) return null;
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start < 0 || end <= start) return null;
+  let value: unknown;
+  try { value = JSON.parse(raw.slice(start, end + 1)); } catch { return null; }
+  if (!value || typeof value !== 'object') return null;
+  const minutes = (value as { remainingMinutes?: unknown }).remainingMinutes;
+  if (!minutes || typeof minutes !== 'object') return null;
+  const low = (minutes as { low?: unknown }).low;
+  const high = (minutes as { high?: unknown }).high;
+  if (typeof low !== 'number' || typeof high !== 'number' || !Number.isFinite(low) || !Number.isFinite(high)) return null;
+  const lowMinutes = Math.round(low);
+  const highMinutes = Math.round(high);
+  if (lowMinutes < 1 || highMinutes < lowMinutes || highMinutes > GOAL_MINUTE_LIMIT) return null;
+  return { lowMs: lowMinutes * 60_000, highMs: highMinutes * 60_000 };
+}

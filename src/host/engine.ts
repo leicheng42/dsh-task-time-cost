@@ -18,7 +18,6 @@ import { applyAiPlan } from '../shared/ai-plan.ts';
 import { forecastCorrection } from '../shared/forecast-guard.ts';
 import { capByRoundBudget } from '../shared/round-budget.ts';
 import { summarizeCalibration } from '../shared/calibration.ts';
-import { planGoal } from '../shared/goal-plan.ts';
 import { chooseFallbackBand } from '../shared/fallback-band.ts';
 import { forecastConfidence, rangeRatio } from '../shared/confidence.ts';
 import type { AiPlan, AiPlanInput } from '../shared/ai-plan.ts';
@@ -52,6 +51,8 @@ export class EstimatorEngine {
   /** Estimates produced by a refresh request once a plan ran out; memory only. */
   private readonly refreshedRemaining = new Map<string, { low: number; high: number; at: number }>();
   private readonly refreshAttempts = new Map<string, number>();
+  /** Latest model answer for a whole goal, keyed by goal id. */
+  private readonly goalForecasts = new Map<string, { lowMs: number; highMs: number; at: number }>();
   private calibrationCache: { samples: number; medianRatio: number | null; underestimated: number; at: number } | null = null;
   /** Recent remaining bounds for the panel trail; memory only. */
   private readonly forecastTrail = new Map<string, Array<{ at: number; highMs: number }>>();
@@ -229,6 +230,16 @@ export class EstimatorEngine {
     this.calibrationCache = { samples: summary.samples, medianRatio: summary.medianRatio, underestimated: summary.underestimated, at: Date.now() };
     return this.calibrationCache;
   }
+  setGoalForecast(goalId: string, lowMs: number, highMs: number): void {
+    if (!goalId || !Number.isFinite(lowMs) || !Number.isFinite(highMs) || lowMs <= 0 || highMs < lowMs) return;
+    this.goalForecasts.set(goalId, { lowMs, highMs, at: Date.now() });
+  }
+
+  goalForecastOf(goalId: string): { lowMs: number; highMs: number } | null {
+    const stored = this.goalForecasts.get(goalId);
+    return stored ? { lowMs: stored.lowMs, highMs: stored.highMs } : null;
+  }
+
   /** True when a running turn is worth a fresh estimate from the model. */
   needsRefresh(sessionId: string, turn: number): boolean {
     const key = `${sessionId}:${turn}`;
@@ -445,17 +456,13 @@ export class EstimatorEngine {
       }
     }
     // A goal stops when its round budget runs out, whatever the clock says.
-    // Goal-level answer: the turn forecast says what is left of this round, the
-    // goal plan says how many rounds remain and roughly how long they take.
-    const goalPlan = task.goalId && task.goalRounds ? (() => {
-      const durations = [...this.repository.tasks.values()]
-        .filter(record => record.current.goalId === task.goalId && record.current.state === 'completed' && record.current.endedAt !== null)
-        .map(record => record.current.elapsedActiveMs)
-        .filter(expected => Number.isFinite(expected) && expected > 0);
-      const plan = planGoal({ started: task.goalRounds.started, max: task.goalRounds.max, rounds: durations.map(elapsedMs => ({ elapsedMs })) });
-      const spentMs = durations.reduce((sum, value) => sum + value, 0) + elapsedActive;
-      return { ...plan, started: task.goalRounds.started, max: task.goalRounds.max, spentMs, turns: durations.length };
-    })() : null;
+    // The goal answer is whatever the model last said about the whole objective.
+    // It is deliberately not derived from the round budget: a cap is not a plan.
+    const goalForecast = task.goalId ? this.goalForecasts.get(task.goalId) ?? null : null;
+    // Progress, not a forecast: how much active time this goal has already consumed.
+    const goalSpentMs = task.goalId ? [...this.repository.tasks.values()]
+      .filter(record => record.current.goalId === task.goalId && record.current.endedAt !== null)
+      .reduce((sum, record) => sum + (record.current.elapsedActiveMs ?? 0), 0) + elapsedActive : null;
     const roundCap = capByRoundBudget(remaining, task.goalRounds ?? null,
       completedCount > 0 && elapsedActive > 0 ? elapsedActive / completedCount : null);
     if (roundCap.remaining) { remaining = roundCap.remaining; typical = (remaining.low + remaining.high) / 2; }
@@ -581,7 +588,8 @@ export class EstimatorEngine {
       confidence, forecastTrail: [...(this.forecastTrail.get(key) ?? [])], activity, calibration: this.calibrationStats(),
       ...(task.goalRounds ? { goalRounds: task.goalRounds } : {}),
       ...(task.goalId ? { goalId: task.goalId } : {}),
-      ...(goalPlan ? { goalPlan } : {}),
+      ...(goalForecast ? { goalForecast: { ...goalForecast } } : {}),
+      ...(goalSpentMs !== null ? { goalSpentMs } : {}),
       initial, error: errors, reasons: [...new Set([...reasons, ...observed.reasons])], scope: 'current_turn',
     });
     this.latest.set(key, { revision, at: now, snapshot });

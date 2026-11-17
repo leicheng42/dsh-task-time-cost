@@ -211,7 +211,7 @@ export function applyClient(ctx: Context): void {
       slower: t('stateSlower', { value: range }), onTrack: t('stateOnTrack', { value: range }),
     };
     const rounds = snapshot?.goalRounds ?? null;
-    const goalPlan = snapshot?.goalPlan ?? null;
+    const goalForecast = snapshot?.goalForecast ?? null;
     const roundsLeft = rounds ? Math.max(0, rounds.max - rounds.started) : null;
     const budgetSpent = !!snapshot?.reasons.includes('goal-round-budget-spent');
     const budgetClose = !!snapshot?.reasons.includes('goal-round-budget-close');
@@ -292,7 +292,7 @@ export function applyClient(ctx: Context): void {
     // so the hero never prints a bare "unknown".
     const heroValue = terminal || !displayedRemaining ? elapsed : eta;
     const heroCaption = t(terminal || !displayedRemaining ? 'heroElapsed' : 'heroRemaining');
-    const goalShort = goalPlan && goalPlan.max > 0 ? t('goalShort', { started: formatNumber(goalPlan.started, localeSnapshot.active, t), max: formatNumber(goalPlan.max, localeSnapshot.active, t) }) : null;
+    const goalShort = rounds && rounds.max > 0 ? t('goalShort', { started: formatNumber(rounds.started, localeSnapshot.active, t), max: formatNumber(rounds.max, localeSnapshot.active, t) }) : null;
     const lineWithGoal = goalShort ? `${line} · ${goalShort}` : line;
     const lineWithClock = finishPoint && !tail && !terminal ? t('etaWithClock', { value: lineWithGoal, clock: finishPoint }) : lineWithGoal;
     const copyText = estimateCopyText({ sentence: statusText, finish: finishClock ? t('finishAt', { time: finishClock }) : null,
@@ -346,11 +346,11 @@ export function applyClient(ctx: Context): void {
           && <p className="dte-finish">{t('finishAt', { time: finishClock })}</p>}
         {progress.state === 'done' && doneClock && <p className="dte-finish">{t('finishedAt', { time: doneClock })}</p>}
         {reasonLine && progress.state !== 'done' && <p className="dte-finish dte-muted">{reasonLine}</p>}
-        {goalPlan && <div className="dte-goal">
-          <p className="dte-goal-line">{t('goalProgress', { started: formatNumber(goalPlan.started, localeSnapshot.active, t), max: formatNumber(goalPlan.max, localeSnapshot.active, t), spent: formatDuration(goalPlan.spentMs, t) })}</p>
-          {goalPlan.roundsLeft > 0 && goalPlan.lowMs !== null && goalPlan.highMs !== null
-            ? <p className="dte-goal-line">{t('goalEta', { rounds: formatNumber(goalPlan.roundsLeft, localeSnapshot.active, t), range: formatEta({ low: goalPlan.lowMs, high: goalPlan.highMs }, t), median: formatDuration(goalPlan.medianRoundMs ?? goalPlan.lowMs, t) })}</p>
-            : <p className="dte-goal-line dte-muted">{t('goalNoEstimate')}</p>}
+        {snapshot?.goalRounds && <div className="dte-goal">
+          <p className="dte-goal-line">{t('goalProgress', { started: formatNumber(rounds?.started ?? 0, localeSnapshot.active, t), max: formatNumber(rounds?.max ?? 0, localeSnapshot.active, t), spent: formatDuration(snapshot.goalSpentMs ?? 0, t) })}</p>
+          {goalForecast
+            ? <p className="dte-goal-line">{t('goalForecastLine', { range: formatEta({ low: goalForecast.lowMs, high: goalForecast.highMs }, t) })}</p>
+            : <p className="dte-goal-line dte-muted">{t('goalNoForecast')}</p>}
         </div>}
         {snapshot && !terminal && (() => {
           const buckets = snapshot.activity ?? [];
