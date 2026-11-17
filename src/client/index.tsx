@@ -116,6 +116,27 @@ export function applyClient(ctx: Context): void {
     </>;
   }
 
+  /** Progress ring: solid while the total is knowable, dashed while it is not. */
+  function Ring({ share, tone }: { share: number | null; tone: string }) {
+    const radius = 26;
+    const circumference = 2 * Math.PI * radius;
+    const filled = share === null ? 0 : (share / 100) * circumference;
+    return <svg className={`dte-ring dte-ring-${tone}`} width="64" height="64" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+      <circle className="dte-ring-track" cx="32" cy="32" r={radius} />
+      <circle className="dte-ring-fill" cx="32" cy="32" r={radius}
+        strokeDasharray={share === null ? '3 6' : `${filled} ${circumference}`} transform="rotate(-90 32 32)" />
+    </svg>;
+  }
+
+  /** Goal rounds as segments: filled = started, hollow = budget left. */
+  function RoundStrip({ started, max }: { started: number; max: number }) {
+    const shown = Math.max(1, Math.min(max, 24));
+    const filled = max > 0 ? Math.round((Math.min(started, max) / max) * shown) : 0;
+    return <span className="dte-rounds" aria-hidden="true">
+      {Array.from({ length: shown }, (_value, index) => <i key={index} className={index < filled ? 'dte-round-on' : 'dte-round-off'} />)}
+    </span>;
+  }
+
   function EstimateWidget({ props, tail }: { props: SlotProps; tail: boolean }) {
     const localeSnapshot = React.useSyncExternalStore(subscribeLocale, readLocale, readLocale);
     const marker = readMarker(props.useProjection('taskEstimator'));
@@ -212,6 +233,13 @@ export function applyClient(ctx: Context): void {
     };
     const rounds = snapshot?.goalRounds ?? null;
     const goalForecast = snapshot?.goalForecast ?? null;
+    const spentMs = timing?.activeMs ?? snapshot?.elapsedActiveMs ?? 0;
+    // Everything visual is derived from the same numbers the sentence uses, so the
+    // picture can never claim more than the words.
+    const barTotal = displayedRemaining ? spentMs + displayedRemaining.high : null;
+    const spentShare = barTotal ? Math.min(100, Math.max(1.5, (spentMs / barTotal) * 100)) : null;
+    const lowShare = barTotal && displayedRemaining ? Math.min(100, ((spentMs + displayedRemaining.low) / barTotal) * 100) : null;
+    const ringShare = barTotal && displayedRemaining!.high / Math.max(displayedRemaining!.low, 1) <= 4 ? Math.min(99, Math.max(1, (spentMs / barTotal) * 100)) : null;
     const roundsLeft = rounds ? Math.max(0, rounds.max - rounds.started) : null;
     const budgetSpent = !!snapshot?.reasons.includes('goal-round-budget-spent');
     const budgetClose = !!snapshot?.reasons.includes('goal-round-budget-close');
@@ -341,33 +369,51 @@ export function applyClient(ctx: Context): void {
             <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="3" cy="8" r="1.2" fill="currentColor" /><circle cx="8" cy="8" r="1.2" fill="currentColor" /><circle cx="13" cy="8" r="1.2" fill="currentColor" /></svg>
           </button>
         </div>
-        <Tooltip text={t('tipStatus')}><p className={showsNumber ? 'dte-status dte-tabular' : 'dte-status dte-status-plain'}>{statusText}</p></Tooltip>
-        {progress.state !== 'done' && progress.state !== 'starting' && finishClock
-          && <p className="dte-finish">{t('finishAt', { time: finishClock })}</p>}
-        {progress.state === 'done' && doneClock && <p className="dte-finish">{t('finishedAt', { time: doneClock })}</p>}
-        {reasonLine && progress.state !== 'done' && <p className="dte-finish dte-muted">{reasonLine}</p>}
-        {snapshot?.goalRounds && <div className="dte-goal">
-          <p className="dte-goal-line">{t('goalProgress', { started: formatNumber(rounds?.started ?? 0, localeSnapshot.active, t), max: formatNumber(rounds?.max ?? 0, localeSnapshot.active, t), spent: formatDuration(snapshot.goalSpentMs ?? 0, t) })}</p>
-          {goalForecast
-            ? <p className="dte-goal-line">{t('goalForecastLine', { range: formatEta({ low: goalForecast.lowMs, high: goalForecast.highMs }, t) })}</p>
-            : <p className="dte-goal-line dte-muted">{t('goalNoForecast')}</p>}
+        <div className="dte-hero">
+          <Ring share={ringShare} tone={progress.state} />
+          <div className="dte-hero-figures">
+            <div className="dte-hero-caption">{statusText}</div>
+            <div className={showsNumber ? 'dte-hero-value dte-tabular' : 'dte-hero-value dte-hero-value-plain'}>{showsNumber ? eta : elapsed}</div>
+          </div>
+        </div>
+        {barTotal !== null && spentShare !== null && lowShare !== null && <div className="dte-track" role="img" aria-label={t('trackLabel', { spent: elapsed, total: range })} title={t('tipStatus')}>
+          <span className="dte-track-spent" style={{ width: `${spentShare}%` }} />
+          <span className="dte-track-band" style={{ left: `${spentShare}%`, width: `${Math.max(0, lowShare - spentShare)}%` }} />
+          <span className="dte-track-now" style={{ left: `${spentShare}%` }} />
         </div>}
-        {snapshot && !terminal && (() => {
+        {(finishClock || reasonLine) && progress.state !== 'done' && <div className="dte-finish-row">
+          {finishClock && <span className="dte-finish">{t('finishAt', { time: finishClock })}</span>}
+          {reasonLine && <span className="dte-finish dte-muted">{reasonLine}</span>}
+        </div>}
+        {progress.state === 'done' && doneClock && <div className="dte-finish-row"><span className="dte-finish">{t('finishedAt', { time: doneClock })}</span></div>}
+        {snapshot?.goalRounds && <div className="dte-goal">
+          <div className="dte-goal-head">
+            <span className="dte-goal-count dte-tabular">{t('goalRoundCounter', { started: formatNumber(rounds?.started ?? 0, localeSnapshot.active, t), max: formatNumber(rounds?.max ?? 0, localeSnapshot.active, t) })}</span>
+            <RoundStrip started={rounds?.started ?? 0} max={rounds?.max ?? 0} />
+            <span className="dte-goal-spent dte-tabular">{formatDuration(snapshot.goalSpentMs ?? 0, t)}</span>
+          </div>
+          <p className="dte-goal-line">{goalForecast
+            ? t('goalForecastLine', { range: formatEta({ low: goalForecast.lowMs, high: goalForecast.highMs }, t) })
+            : t('goalNoForecast')}</p>
+        </div>}
+        {snapshot && (() => {
           const buckets = snapshot.activity ?? [];
           const quiet = buckets.every(value => value === 0);
           const max = Math.max(...buckets, 1);
-          return <Tooltip text={t('tipActivity', { calls: formatNumber(snapshot.calls.completed, localeSnapshot.active, t), steps: formatNumber(snapshot.tools.completed, localeSnapshot.active, t) })}>
-            <div className="dte-activity" role="img" aria-label={t('activityLabel')}>
-              <span className="dte-activity-quiet">{quiet ? t('activityQuiet') : t('activityRecent')}</span>
-              {!quiet && <span className="dte-activity-band" aria-hidden="true">{buckets.map((value, index) => <i key={index} style={{ height: `${Math.max(12, Math.round(value / max * 100))}%` }} />)}</span>}
-            </div>
-          </Tooltip>;
+          return <div className="dte-footer">
+            <Tooltip text={t('tipActivity', { calls: formatNumber(snapshot.calls.completed, localeSnapshot.active, t), steps: formatNumber(snapshot.tools.completed, localeSnapshot.active, t) })}>
+              <span className="dte-activity" role="img" aria-label={t('activityLabel')}>
+                {quiet ? <span className="dte-activity-quiet">{t('activityFlat')}</span>
+                  : <span className="dte-activity-band" aria-hidden="true">{buckets.map((value, index) => <i key={index} style={{ height: `${Math.max(14, Math.round(value / max * 100))}%` }} />)}</span>}
+              </span>
+            </Tooltip>
+            <Tooltip text={t('tipFacts')}><span className="dte-chips dte-tabular">
+              {!terminal && showsNumber && <span className="dte-chip">{t('factUsed')}{elapsed}</span>}
+              <span className="dte-chip">{costUsed}</span>
+              <span className="dte-chip">{tokenUsed}</span>
+            </span></Tooltip>
+          </div>;
         })()}
-        {snapshot && <Tooltip text={t('tipFacts')}><p className="dte-facts dte-tabular">
-          <span>{t('factUsed')}<b>{elapsed}</b></span>
-          <span>{costUsed}</span>
-          <span>{tokenUsed}</span>
-        </p></Tooltip>}
         {footnote && <p className="dte-footnote">{footnote}</p>}
         {state.error && <p className="dte-error dte-small" role="alert">{errorText(state.error, t)}</p>}
         <div id={`${id}-more`} className="dte-pop-actions" hidden={view === 'summary'}>

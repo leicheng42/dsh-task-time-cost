@@ -141,4 +141,35 @@ export const styles = `
 @media(pointer:coarse){.dte button,.dte summary,.dte input{min-height:44px}.dte textarea{font-size:max(1em,16px)}}
 /* Reduced motion must also stop the looping state icon, not only transitions. */
 @media(prefers-reduced-motion:reduce){.dte *{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+
+/* Visual dashboard: the same numbers as the sentence, drawn instead of written. */
+.dte .dte-hero{display:flex;align-items:center;gap:14px;margin:16px 0 0}
+.dte .dte-ring{flex:0 0 64px;width:64px;height:64px}
+.dte .dte-ring-track{fill:none;stroke:var(--dsw-alias-bg-layer-2);stroke-width:6}
+.dte .dte-ring-fill{fill:none;stroke:var(--dsw-alias-brand-primary);stroke-width:6;stroke-linecap:round;transition:stroke-dasharray .4s ease}
+.dte .dte-ring-done .dte-ring-fill{stroke:var(--dsw-alias-label-tertiary)}
+.dte .dte-hero-figures{min-width:0;flex:1 1 auto}
+.dte .dte-hero-value{font-size:26px;line-height:1.15;font-weight:600;color:var(--dsw-alias-label-primary);letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.dte .dte-hero-value-plain{font-size:22px}
+.dte .dte-hero-caption{font-size:12px;line-height:1.35;color:var(--dsw-alias-label-tertiary);white-space:normal}
+.dte .dte-track{position:relative;height:8px;margin:16px 0 0;border-radius:999px;background:var(--dsw-alias-bg-layer-2);overflow:hidden}
+.dte .dte-track-spent{position:absolute;left:0;top:0;bottom:0;background:color-mix(in srgb,var(--dsw-alias-brand-primary) 34%,transparent)}
+.dte .dte-track-band{position:absolute;top:0;bottom:0;background:color-mix(in srgb,var(--dsw-alias-brand-primary) 70%,transparent);border-radius:0 999px 999px 0}
+.dte .dte-track-now{position:absolute;top:-2px;bottom:-2px;width:2px;margin-left:-1px;border-radius:2px;background:var(--dsw-alias-label-primary)}
+.dte .dte-finish-row{display:flex;flex-wrap:wrap;gap:4px 10px;margin:8px 0 0}
+.dte .dte-finish-row .dte-finish{margin:0}
+.dte .dte-goal-head{display:flex;align-items:center;gap:10px}
+.dte .dte-goal-count{font-size:12px;color:var(--dsw-alias-label-secondary);white-space:nowrap}
+.dte .dte-rounds{display:flex;gap:3px;flex:1 1 auto;min-width:0}
+.dte .dte-rounds i{flex:1 1 0;min-width:2px;max-width:14px;height:6px;border-radius:2px}
+.dte .dte-round-on{background:var(--dsw-alias-brand-primary)}
+.dte .dte-round-off{background:var(--dsw-alias-bg-layer-2)}
+.dte .dte-goal-spent{font-size:12px;color:var(--dsw-alias-label-tertiary);white-space:nowrap;font-variant-numeric:tabular-nums}
+.dte .dte-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:16px 0 0;flex-wrap:nowrap}
+.dte .dte-chips{display:flex;gap:5px;flex-wrap:nowrap;justify-content:flex-end;min-width:0;overflow:hidden}
+.dte .dte-chip{padding:1px 7px;border:1px solid var(--dsw-alias-border-l1);border-radius:999px;font-size:10.5px;line-height:15px;color:var(--dsw-alias-label-secondary);white-space:nowrap;font-variant-numeric:tabular-nums}
+.dte .dte-activity{display:flex;align-items:flex-end;gap:2px;height:16px;width:64px;margin:0}
+.dte .dte-activity-band{display:flex;align-items:flex-end;gap:2px;height:16px;flex:1 1 auto;min-width:0}
+.dte .dte-activity-band i{flex:1;min-width:3px;border-radius:2px;background:color-mix(in srgb,var(--dsw-alias-brand-primary) 55%,transparent)}
+.dte .dte-activity-quiet{color:var(--dsw-alias-label-tertiary);font-size:11px;line-height:16px;white-space:nowrap}
 `;
