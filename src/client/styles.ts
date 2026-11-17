@@ -117,6 +117,8 @@ export const styles = `
 .dte button:focus-visible, .dte a:focus-visible, .dte [tabindex]:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px;border-radius:6px}
 .dte-tip-card{transition:opacity .12s ease}
 .dte-tip-card{position:fixed;box-sizing:border-box;z-index:2000000000;max-width:260px;padding:8px 10px;border-radius:8px;background:var(--dsw-alias-bg-layer-2,var(--dsw-alias-bg-base));color:var(--dsw-alias-label-secondary);font-size:11px;line-height:1.5;box-shadow:0 8px 24px rgba(0,0,0,.18);pointer-events:none}
+.dte .dte-goal{margin:12px 0 0;padding-top:10px;border-top:1px solid var(--dsw-alias-border-l1)}
+.dte .dte-goal-line{margin:4px 0 0;font-size:12px;line-height:1.5;color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums}
 .dte .dte-activity{display:flex;align-items:center;gap:10px;margin:12px 0 0}
 .dte .dte-activity-counts{color:var(--dsw-alias-label-tertiary);font-size:11px;white-space:nowrap}
 .dte .dte-activity-band{display:flex;align-items:flex-end;gap:2px;height:16px;flex:1;min-width:0}

@@ -18,6 +18,7 @@ import { applyAiPlan } from '../shared/ai-plan.ts';
 import { forecastCorrection } from '../shared/forecast-guard.ts';
 import { capByRoundBudget } from '../shared/round-budget.ts';
 import { summarizeCalibration } from '../shared/calibration.ts';
+import { planGoal } from '../shared/goal-plan.ts';
 import { chooseFallbackBand } from '../shared/fallback-band.ts';
 import { forecastConfidence, rangeRatio } from '../shared/confidence.ts';
 import type { AiPlan, AiPlanInput } from '../shared/ai-plan.ts';
@@ -444,6 +445,17 @@ export class EstimatorEngine {
       }
     }
     // A goal stops when its round budget runs out, whatever the clock says.
+    // Goal-level answer: the turn forecast says what is left of this round, the
+    // goal plan says how many rounds remain and roughly how long they take.
+    const goalPlan = task.goalId && task.goalRounds ? (() => {
+      const durations = [...this.repository.tasks.values()]
+        .filter(record => record.current.goalId === task.goalId && record.current.state === 'completed' && record.current.endedAt !== null)
+        .map(record => record.current.elapsedActiveMs)
+        .filter(expected => Number.isFinite(expected) && expected > 0);
+      const plan = planGoal({ started: task.goalRounds.started, max: task.goalRounds.max, rounds: durations.map(elapsedMs => ({ elapsedMs })) });
+      const spentMs = durations.reduce((sum, value) => sum + value, 0) + elapsedActive;
+      return { ...plan, started: task.goalRounds.started, max: task.goalRounds.max, spentMs, turns: durations.length };
+    })() : null;
     const roundCap = capByRoundBudget(remaining, task.goalRounds ?? null,
       completedCount > 0 && elapsedActive > 0 ? elapsedActive / completedCount : null);
     if (roundCap.remaining) { remaining = roundCap.remaining; typical = (remaining.low + remaining.high) / 2; }
@@ -568,6 +580,8 @@ export class EstimatorEngine {
       priceSources: [...new Set(usageCalls.flatMap(call => call.resolution.entry ? [`${call.resolution.entry.id}@${call.resolution.entry.version}${call.resolution.entry.sourceUrl ? ` ${call.resolution.entry.sourceUrl}` : ''}`] : []))],
       confidence, forecastTrail: [...(this.forecastTrail.get(key) ?? [])], activity, calibration: this.calibrationStats(),
       ...(task.goalRounds ? { goalRounds: task.goalRounds } : {}),
+      ...(task.goalId ? { goalId: task.goalId } : {}),
+      ...(goalPlan ? { goalPlan } : {}),
       initial, error: errors, reasons: [...new Set([...reasons, ...observed.reasons])], scope: 'current_turn',
     });
     this.latest.set(key, { revision, at: now, snapshot });

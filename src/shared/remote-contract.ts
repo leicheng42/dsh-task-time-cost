@@ -43,6 +43,9 @@ export const snapshotSchema: z.ZodType<EstimateSnapshot> = z.object({
   forecastTrail: z.array(z.object({ at: nonnegative, highMs: nonnegative })).max(16).optional(),
   activity: z.array(integer).max(12).optional(),
   goalRounds: z.object({ started: integer, max: integer }).optional(),
+  /** Opaque goal identity; grouping only, never rendered. */
+  goalId: z.string().optional(),
+  goalPlan: z.object({ roundsLeft: integer, observed: integer, medianRoundMs: z.number().finite().nullable(), lowMs: z.number().finite().nullable(), highMs: z.number().finite().nullable(), started: integer, max: integer, spentMs: z.number().finite(), turns: integer }).optional(),
   calibration: z.object({ samples: integer, medianRatio: z.number().finite().nullable(), underestimated: integer }).optional(),
   error: z.string().nullable(), reasons: z.array(z.string()), scope: z.literal('current_turn'),
 });
