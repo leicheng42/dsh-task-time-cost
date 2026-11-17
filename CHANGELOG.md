@@ -1,5 +1,14 @@
 # Changelog / 发行说明
 
+## 0.5.0 — range first: a single number is earned, not assumed
+
+P1 of docs/public/design.md.
+
+- Add confidence levels (`assessing`, `preliminary`, `calibrated`, `stable`) computed from local samples, completed calls and the width of the remaining range; the panel collapses to one number only in `stable`.
+- Hero, entry line and label follow that rule: early or wide forecasts show the range plus an early/calibrating tag instead of a point estimate.
+- Record a short forecast trail per turn and draw it under the timeline, so the narrowing (or widening) of the estimate is visible.
+- Unit tests pin the ladder, including the reported case of a range that may not collapse into a single minute.
+
 ## 0.4.0 — a forecast that can be proven wrong, and says so
 
 Design rewrite first slice; full rationale in `docs/public/design.md`.

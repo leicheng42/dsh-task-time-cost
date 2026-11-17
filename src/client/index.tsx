@@ -5,6 +5,8 @@ import type { ChatSnapshot, TurnTailChatData } from '@deepseek-ai/dsh-client-ui-
 import type { EstimatorRemote } from '../shared/wire.ts';
 import { EstimateDetails } from './details.tsx';
 import { clockRange, compactTokens, compactTokenRange, costUnconfigured, formatClock, formatDuration, formatEta, formatEtaPoint, formatMoneyCompact, formatMoneyRangesCompact, isAssessing, isTerminal, localTiming, progressShare, remainingCostRanges, validSpan } from './format.ts';
+import { allowsPointEstimate } from '../shared/confidence.ts';
+import type { ForecastConfidence } from '../shared/confidence.ts';
 import { en, zh, LOCALE_NAMESPACE } from './locale.ts';
 import type { Translate } from './locale.ts';
 import { Management } from './management.tsx';
@@ -175,7 +177,11 @@ export function applyClient(ctx: Context): void {
     const assessing = !!snapshot && isAssessing(snapshot) && sessionRemaining === null;
     const displayedRemaining = assessing ? null : sessionRemaining ?? retained?.remainingMs;
     const range = formatEta(displayedRemaining, t);
-    const eta = formatEtaPoint(displayedRemaining, t, sessionRemaining !== null ? snapshot?.remainingTypicalMs : retained?.remainingTypicalMs);
+    // Only a stable forecast may collapse into one number; everything else keeps
+    // the range so a long task never opens with a confident-looking minute.
+    const confidence: ForecastConfidence = snapshot?.confidence ?? (validSpan(displayedRemaining) ? 'preliminary' : 'assessing');
+    const pointAllowed = allowsPointEstimate(confidence);
+    const eta = pointAllowed ? formatEtaPoint(displayedRemaining, t, sessionRemaining !== null ? snapshot?.remainingTypicalMs : retained?.remainingTypicalMs) : range;
     // Keep the last time reference while the new plan is unavailable. It is
     // frozen and labelled in the dialog, never used as a current cost budget.
     const initialScope = snapshot?.reasons.includes('scope-engineering-prior') ?? false;
@@ -285,6 +291,7 @@ export function applyClient(ctx: Context): void {
         <div className="dte-hero">
           <span className="dte-hero-value dte-tabular">{snapshot ? heroValue : t('unknown')}</span>
           <span className="dte-hero-caption">{heroCaption}</span>
+          {snapshot && !terminal && !assessing && !pointAllowed && <span className="dte-tag">{t(confidence === 'calibrated' ? 'confidenceCalibrated' : 'confidencePreliminary')}</span>}
           {snapshot && !terminal && !assessing && <span className="dte-tag dte-source">{sourceTag}</span>}
         </div>
         {overrun && !terminal && <p className="dte-finish">{t('overrun')}</p>}
@@ -300,6 +307,15 @@ export function applyClient(ctx: Context): void {
           </div>
           <div className="dte-timeline-labels" aria-hidden="true"><span>{timeline.start}</span><span>{timeline.finish}</span></div>
         </div>}
+        {(() => {
+          const trail = snapshot?.forecastTrail ?? [];
+          if (terminal || trail.length < 3) return null;
+          const maxHigh = Math.max(...trail.map(point => point.highMs), 1);
+          return <div className="dte-trail" role="img" aria-label={t('trailLabel')}>
+            <span className="dte-trail-caption">{t('trailCaption')}</span>
+            <span className="dte-trail-bars" aria-hidden="true">{trail.map((point, index) => <i key={index} style={{ height: `${Math.max(12, Math.round(point.highMs / maxHigh * 100))}%` }} />)}</span>
+          </div>;
+        })()}
         {retained && <p className="dte-status-line">{t('retainedForecastHint', { time: new Date(retained.updatedAt).toLocaleTimeString(localeSnapshot.active, { hour: '2-digit', minute: '2-digit' }) })}</p>}
         {snapshot && <div className="dte-metrics">
           {metrics.map(metric => <div className="dte-metric" key={metric.key}>

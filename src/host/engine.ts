@@ -16,6 +16,7 @@ import { estimateContinuation, estimateWorkloadTime } from '../shared/time.ts';
 import type { RequestProgress } from '../shared/time.ts';
 import { applyAiPlan } from '../shared/ai-plan.ts';
 import { forecastCorrection } from '../shared/forecast-guard.ts';
+import { forecastConfidence, rangeRatio } from '../shared/confidence.ts';
 import type { AiPlan, AiPlanInput } from '../shared/ai-plan.ts';
 import type { RouteIdentity, Span, TaskKind } from '../shared/types.ts';
 import type { BaselineRecord } from '../shared/baselines.ts';
@@ -44,6 +45,8 @@ export class EstimatorEngine {
   private readonly estimatorPlans = new Map<string, AiPlan>();
   /** Total first shown for a running turn; the anchor the overrun check needs even when nothing was saved yet. */
   private readonly firstForecast = new Map<string, number>();
+  /** Recent remaining bounds for the panel trail; memory only. */
+  private readonly forecastTrail = new Map<string, Array<{ at: number; highMs: number }>>();
   private readonly latest = new Map<string, { revision: number; at: number; snapshot: EstimateSnapshot }>();
   private readonly currentInput = new Map<string, number | null>();
   private readonly initialInput = new Map<string, number | null>();
@@ -463,6 +466,14 @@ export class EstimatorEngine {
       : { low: Math.min(...outputScenarios.map(value => value.low)), high: Math.max(...outputScenarios.map(value => value.high)) };
     const estimatedTokens = tokenScenarios.every((span): span is Span => span !== null)
       ? { low: Math.max(totalTokens ?? 0, Math.min(...tokenScenarios.map(span => span.low))), high: Math.max(totalTokens ?? 0, ...tokenScenarios.map(span => span.high)) } : null;
+    // Confidence decides whether the panel may print a single number at all.
+    const confidence = forecastConfidence({ hasRemaining: remaining !== null, hasPlan: !!task.aiPlan, localSamples: prediction.localPerformanceSamples,
+      completedCalls: completedCount, rangeRatio: rangeRatio(remaining) });
+    if (remaining) {
+      const trail = this.forecastTrail.get(key) ?? [];
+      if (!trail.length || Math.abs(trail[trail.length - 1]!.highMs - remaining.high) > remaining.high * 0.05) trail.push({ at: now, highMs: remaining.high });
+      this.forecastTrail.set(key, trail.slice(-10));
+    }
     const initial = saved?.current.initial ?? (task.endedAt === null && task.promptChars > 0 && this.startedHere.has(key) ? { estimatedTotalMs: remaining ? { low: elapsedActive + remaining.low, high: elapsedActive + remaining.high } : null, estimatedTotalCost: totalCost } : null);
     const snapshot: EstimateSnapshot = snapshotSchema.parse({
       taskKey: key, sessionId, turn: task.turn, revision: Math.max(1, (cached?.snapshot.revision ?? saved?.current.revision ?? 0) + 1), algorithmVersion: ALGORITHM_VERSION,
@@ -489,6 +500,7 @@ export class EstimatorEngine {
       tools: { completed: completedTools.length, active: activeTools.length, workMs: toolWorkMs },
       performance: { ...route, firstContentMs: performanceEstimate.firstContentMs, firstTextMs: performanceEstimate.firstTextMs, visibleTps: performanceEstimate.visibleTps, totalCallMs: performanceEstimate.totalCallMs, source: `${performanceEstimate.sourceKind}:${performanceEstimate.match}`, trust: performanceEstimate.trust, metricOrigins: performanceEstimate.metricOrigins, stale: performanceEstimate.reasons.includes('stale-profile-retained-for-audit') },
       priceSources: [...new Set(usageCalls.flatMap(call => call.resolution.entry ? [`${call.resolution.entry.id}@${call.resolution.entry.version}${call.resolution.entry.sourceUrl ? ` ${call.resolution.entry.sourceUrl}` : ''}`] : []))],
+      confidence, forecastTrail: [...(this.forecastTrail.get(key) ?? [])],
       initial, error: errors, reasons: [...new Set([...reasons, ...observed.reasons])], scope: 'current_turn',
     });
     this.latest.set(key, { revision, at: now, snapshot });
@@ -611,7 +623,7 @@ export class EstimatorEngine {
     for (const key of this.startedHere) if (key.startsWith(`${sessionId}:`)) this.startedHere.delete(key);
   }
   dispose(): void {
-    this.flushPending(); this.runtime.clear(); this.latest.clear(); this.plans.clear(); this.estimatorPlans.clear(); this.firstForecast.clear(); this.currentInput.clear(); this.initialInput.clear();
+    this.flushPending(); this.runtime.clear(); this.latest.clear(); this.plans.clear(); this.estimatorPlans.clear(); this.firstForecast.clear(); this.forecastTrail.clear(); this.currentInput.clear(); this.initialInput.clear();
     this.requestInputs.clear(); this.startedHere.clear(); this.unavailable.clear();
   }
 }

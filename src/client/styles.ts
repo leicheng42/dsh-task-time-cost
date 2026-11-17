@@ -105,6 +105,10 @@ export const styles = `
 .dte .dte-switch-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 0;padding:6px 8px;border:1px solid var(--dsw-alias-border-l1);border-radius:8px}
 .dte .dte-switch{display:flex;align-items:center;gap:6px;color:var(--dsw-alias-label-secondary);font-size:12px}
 .dte .dte-switch input{width:auto;min-height:0;margin:0}
+.dte .dte-trail{display:flex;align-items:center;gap:8px;margin:10px 0 0}
+.dte .dte-trail-caption{color:var(--dsw-alias-label-tertiary);font-size:10px;white-space:nowrap}
+.dte .dte-trail-bars{display:flex;align-items:flex-end;gap:2px;height:18px;flex:1;min-width:0}
+.dte .dte-trail-bars i{flex:1;min-width:3px;max-width:10px;border-radius:2px 2px 0 0;background:color-mix(in srgb,var(--dsw-alias-brand-primary) 45%,transparent)}
 .dte .dte-metrics{display:flex;flex-direction:column;gap:14px;margin:16px 0 0}
 .dte .dte-metric-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
 .dte .dte-metric-label{color:var(--dsw-alias-label-secondary);font-size:12px;font-weight:500}

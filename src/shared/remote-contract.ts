@@ -39,6 +39,8 @@ export const snapshotSchema: z.ZodType<EstimateSnapshot> = z.object({
   }).nullable(),
   priceSources: z.array(z.string()),
   initial: z.object({ estimatedTotalMs: span.nullable(), estimatedTotalCost: z.array(moneyRange).nullable() }).nullable(),
+  confidence: z.enum(['assessing', 'preliminary', 'calibrated', 'stable']).optional(),
+  forecastTrail: z.array(z.object({ at: nonnegative, highMs: nonnegative })).max(16).optional(),
   error: z.string().nullable(), reasons: z.array(z.string()), scope: z.literal('current_turn'),
 });
 export const managementViewSchema = z.object({
