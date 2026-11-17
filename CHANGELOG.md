@@ -1,5 +1,11 @@
 # Changelog / 发行说明
 
+## 0.3.6 — the model estimate is for long tasks, switched from the panel
+
+- Skip the estimator when the current forecast already says the task will finish within `minHighMs` (default five minutes): short work does not need a second model call, while long or still-unknown work is exactly where an early number helps.
+- Put the switch at the top of the summary panel: one checkbox labelled 模型预估 saves through a dedicated management action, so turning it on or off never requires editing configuration.
+- Keep the provider/model override in the advanced section only; the default path needs no configuration and follows the session route.
+
 ## 0.3.5 — the model estimate is the default and needs no configuration
 
 - Default `estimatorModel` to on and resolve the route from the session itself: with empty provider/model the call reuses the provider and model the session already uses, so no new recipient sees the task text and nothing has to be filled in.

@@ -8,10 +8,10 @@ import type { MessageKey, Translate } from './locale.ts';
 import type { SnapshotStore } from './store.ts';
 
 const pendingLabels: Record<ManagementAction, MessageKey> = {
-  read: 'pendingRead', saveConfig: 'pendingSave', importBaselines: 'pendingImport', export: 'pendingExport', resetCalibration: 'pendingReset',
+  read: 'pendingRead', saveConfig: 'pendingSave', importBaselines: 'pendingImport', estimatorModel: 'pendingSave', export: 'pendingExport', resetCalibration: 'pendingReset',
 };
 const successLabels: Record<ManagementAction, MessageKey> = {
-  read: 'reloaded', saveConfig: 'saved', importBaselines: 'imported', export: 'exported', resetCalibration: 'resetDone',
+  read: 'reloaded', saveConfig: 'saved', importBaselines: 'imported', estimatorModel: 'saved', export: 'exported', resetCalibration: 'resetDone',
 };
 
 interface Props { remote: EstimatorRemote; store: SnapshotStore; t: Translate; locale: string }
@@ -171,6 +171,8 @@ export function Management({ remote, store, t, locale }: Props) {
     {data?.storage === 'unavailable' && <p className="dte-warn" role="status">{t('storageUnavailable')}</p>}
     {data && <>
       <form onSubmit={save} noValidate aria-label={t('config')} aria-describedby={validation ? `${id}-validation` : undefined}>
+        <details ref={advancedSection} className="dte-subsection">
+          <summary>{t('advancedSettings')}</summary>
           <fieldset className="dte-fieldset">
             <legend>{t('estimatorModelTitle')}</legend>
             <p className="dte-muted dte-small" id={`${id}-estimator-notice`}>{t('estimatorModelNotice')}</p>
@@ -194,9 +196,7 @@ export function Management({ remote, store, t, locale }: Props) {
                   onChange={(event) => changeEstimator({ timeoutMs: Number(event.currentTarget.value) })} /></label>
             </div>
           </fieldset>
-        <p className="dte-muted dte-small">{t('estimatorModelFollow')}</p>
-        <details ref={advancedSection} className="dte-subsection">
-          <summary>{t('advancedSettings')}</summary>
+          <p className="dte-muted dte-small">{t('estimatorModelFollow')}</p>
           <div className="dte-grid">
             {configFields.map((field) => <label className="dte-field" key={field.key} htmlFor={`${id}-${field.key}`}>
               <span>{t(field.label)}</span>

@@ -119,6 +119,15 @@ export class TaskEstimatorService extends TypertRemoteService {
           value => validatePluginConfig(value) as unknown as Record<string, unknown>);
         return { ok: true, message: 'Configuration saved. The plugin reloads through the DSH lifecycle.' };
       }
+      if (action === 'estimatorModel') {
+        const patch = z.object({ enabled: z.boolean() }).strict().parse(JSON.parse(payload));
+        const config = validatePluginConfig({ ...this.engine.config, estimatorModel: { ...this.engine.config.estimatorModel, ...patch } });
+        const editor = this.ctx.get('configEditor') as ConfigEditorLike | undefined;
+        if (!editor) return { ok: false, message: 'Configuration cannot be saved in this profile: configEditor is unavailable.' };
+        await persistConfig(editor, this.ctx.fiber.entry as ConfigEntryLike | undefined, config as unknown as Record<string, unknown>,
+          value => validatePluginConfig(value) as unknown as Record<string, unknown>);
+        return { ok: true, message: patch.enabled ? 'Model estimate on. It follows this session route.' : 'Model estimate off. The template forecast stays.' };
+      }
       if (action === 'resetCalibration') {
         await repository.resetCalibration();
         if (!repository.available) return { ok: false, message: repository.error ?? 'Calibration reset could not be saved.' };
@@ -225,6 +234,11 @@ export async function apply(ctx: Context, rawConfig: unknown): Promise<void> {
         const task = state.tasks[String(turn)];
         // The executing agent's own plan wins; never call the model when one exists.
         if (!task || task.aiPlan || task.calls.length < 1) return;
+        // A task that will finish in a couple of minutes does not deserve a
+        // second model call; only long or still-unknown work asks the model.
+        let highMs: number | null = null;
+        try { highMs = engine.estimate(session.id, task, state.view.revision ?? 0).estimatedTotalMs?.high ?? null; } catch { highMs = null; }
+        if (highMs !== null && highMs < config.estimatorModel.minHighMs) return;
         const plan = await requestEstimatorPlan(ctx, config.estimatorModel,
           { providerId: task.route?.providerId ?? null, modelId: task.route?.modelId ?? null }, text);
         if (plan) engine.setEstimatorPlan(session.id, turn, plan);
@@ -282,7 +296,7 @@ export async function apply(ctx: Context, rawConfig: unknown): Promise<void> {
   ctx.tools.register({
     name: 'task_estimator', description: 'Read task time/cost estimates or manage this plugin’s local configuration, calibration, and JSON/CSV baselines. Export returns redacted statistics. Reset preserves history and DSH sessions.',
     parameters: { type: 'object', properties: {
-      action: { type: 'string', enum: ['snapshot', 'read', 'saveConfig', 'export', 'resetCalibration', 'importBaselines'] },
+      action: { type: 'string', enum: ['snapshot', 'read', 'saveConfig', 'estimatorModel', 'export', 'resetCalibration', 'importBaselines'] },
       turn: { type: 'integer', minimum: 0, description: 'Completed turn number; omit for the current or latest turn.' },
       payload: { type: 'string', description: 'Full JSON config for saveConfig, JSON/CSV contents for importBaselines; omit for other actions.' },
     }, required: ['action'], additionalProperties: false },
@@ -291,7 +305,7 @@ export async function apply(ctx: Context, rawConfig: unknown): Promise<void> {
       return [{ type: 'text', text }];
     } },
     async execute(args, exec) {
-      const input = z.object({ action: z.enum(['snapshot', 'read', 'saveConfig', 'export', 'resetCalibration', 'importBaselines']), turn: z.number().int().nonnegative().optional(), payload: z.string().max(2_000_000).optional() }).strict().parse(args);
+      const input = z.object({ action: z.enum(['snapshot', 'read', 'saveConfig', 'estimatorModel', 'export', 'resetCalibration', 'importBaselines']), turn: z.number().int().nonnegative().optional(), payload: z.string().max(2_000_000).optional() }).strict().parse(args);
       if (input.action === 'snapshot') {
         if (!exec.agent) return { available: false, snapshot: null, error: 'A session is required.' };
         const started = performance.now();

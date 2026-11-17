@@ -123,7 +123,7 @@ export interface ProfileSummary {
   testedAt: number | null;
   sourceKind: 'heuristic' | 'public-measured' | 'local-measured';
 }
-export type ManagementAction = 'read' | 'saveConfig' | 'export' | 'resetCalibration' | 'importBaselines';
+export type ManagementAction = 'read' | 'saveConfig' | 'estimatorModel' | 'export' | 'resetCalibration' | 'importBaselines';
 export interface ManagementResult {
   ok: boolean;
   message: string;

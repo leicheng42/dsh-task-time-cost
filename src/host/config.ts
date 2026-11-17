@@ -28,6 +28,8 @@ export interface EstimatorModelConfig {
   timeoutMs: number;
   /** Wait this long for the executing agent's own plan before asking the model. */
   delayMs: number;
+  /** Only ask the model when the uncalibrated forecast is at least this long. */
+  minHighMs: number;
 }
 export interface PluginConfig extends EstimatorConfig {
   prices: PriceEntry[];
@@ -79,6 +81,7 @@ export function validatePluginConfig(raw: unknown): PluginConfig {
     model: z.string().max(160).default(''),
     timeoutMs: z.number().int().min(1_000).max(120_000).default(20_000),
     delayMs: z.number().int().min(0).max(120_000).default(8_000),
+    minHighMs: z.number().int().min(0).max(86_400_000).default(300_000),
   }).strict().parse(estimatorModel);
   if (Boolean(model.provider.trim()) !== Boolean(model.model.trim())) throw new TypeError('An estimator override needs both a provider and a model, or leave both empty to follow the session route');
   return { ...validated, estimatorModel: model, prices:  structuredClone(prices) as PriceEntry[], usePublicPriceCatalog, sameAs: structuredClone(sameAs) as SameAs[], routeOverrides: routes,
@@ -106,5 +109,6 @@ configFields.estimatorModel = Schema.object({
   model: Schema.string().default('').description('Optional override model id; set it together with the provider.'),
   timeoutMs: Schema.number().min(1_000).max(120_000).default(20_000).description('Abort a single estimator call after this long.'),
   delayMs: Schema.number().min(0).max(120_000).default(8_000).description('Wait this long for the executing agent plan before asking the model.'),
-}).default({ enabled: true, provider: '', model: '', timeoutMs: 20_000, delayMs: 8_000 }).description('Optional second-model estimator; disabled unless enabled explicitly.');
+  minHighMs: Schema.number().min(0).max(86_400_000).default(300_000).description('Skip the model for tasks whose uncalibrated forecast is shorter than this; small tasks finish too fast to need it.'),
+}).default({ enabled: true, provider: '', model: '', timeoutMs: 20_000, delayMs: 8_000, minHighMs: 300_000 }).description('Optional second-model estimator; disabled unless enabled explicitly.');
 export const Config = Schema.object(configFields).description('Local task time and cost estimates. The optional estimator model is off by default and, when enabled, sends the task text to the chosen model.');

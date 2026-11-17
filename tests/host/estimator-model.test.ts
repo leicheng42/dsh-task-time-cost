@@ -72,6 +72,7 @@ test('the estimator is on by default and follows the session unless overridden',
   const defaults = defaultPluginConfig();
   assert.equal(defaults.estimatorModel.enabled, true, 'the model-based estimate is the default');
   assert.equal(defaults.estimatorModel.provider, '', 'no provider has to be named');
+  assert.equal(defaults.estimatorModel.minHighMs, 300_000, 'tasks forecast under five minutes skip the model');
   assert.deepEqual(resolveEstimatorRoute(providers, session, { provider: '', model: '' }), { provider: 'provider-a', model: 'model-a', source: 'session-route' });
   assert.equal(resolveEstimatorRoute(providers, { providerId: 'magpie-responses', modelId: 'auto/x' }, { provider: '', model: '' }), null, '未知路由不乱猜');
   assert.deepEqual(resolveEstimatorRoute(providers, { providerId: 'provider-a', modelId: 'model-a' }, { provider: 'p', model: 'm' }), { provider: 'p', model: 'm', source: 'override' });

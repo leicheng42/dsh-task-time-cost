@@ -8,7 +8,7 @@ import { clockRange, compactTokens, compactTokenRange, costUnconfigured, formatC
 import { en, zh, LOCALE_NAMESPACE } from './locale.ts';
 import type { Translate } from './locale.ts';
 import { Management } from './management.tsx';
-import { errorText } from './remote.ts';
+import { errorText, manageRemote } from './remote.ts';
 import { SnapshotStore } from './store.ts';
 import { styles } from './styles.ts';
 import { usePanelPlacement } from './use-panel-placement.ts';
@@ -76,6 +76,39 @@ export function applyClient(ctx: Context): void {
   const t = locale.bind(LOCALE_NAMESPACE);
   const subscribeLocale = (listener: () => void) => locale.subscribe(listener);
   const readLocale = () => locale.getSnapshot();
+
+  /** Top-level switch: one click, no configuration, saved through the Host. */
+  function EstimatorSwitch({ remote, t }: { remote: EstimatorRemote | undefined; t: Translate }) {
+    const [enabled, setEnabled] = React.useState<boolean | null>(null);
+    const [busy, setBusy] = React.useState(false);
+    React.useEffect(() => {
+      if (!remote) return;
+      let active = true;
+      void (async () => {
+        try {
+          const result = await manageRemote(remote, 'read', '');
+          const config = (result.data as { config?: { estimatorModel?: { enabled?: boolean } } } | undefined)?.config;
+          if (active) setEnabled(config?.estimatorModel?.enabled !== false);
+        } catch { if (active) setEnabled(null); }
+      })();
+      return () => { active = false; };
+    }, [remote]);
+    const toggle = async () => {
+      if (!remote || enabled === null || busy) return;
+      const next = !enabled;
+      setBusy(true); setEnabled(next);
+      try { await manageRemote(remote, 'estimatorModel', JSON.stringify({ enabled: next })); }
+      catch { setEnabled(!next); }
+      finally { setBusy(false); }
+    };
+    return <div className="dte-switch-row">
+      <label className="dte-switch">
+        <input type="checkbox" checked={enabled === true} disabled={enabled === null || busy} onChange={() => void toggle()} />
+        <span>{t('estimatorSwitch')}</span>
+      </label>
+      <span className="dte-muted dte-small">{t('estimatorSwitchHint')}</span>
+    </div>;
+  }
 
   function EstimateWidget({ props, tail }: { props: SlotProps; tail: boolean }) {
     const localeSnapshot = React.useSyncExternalStore(subscribeLocale, readLocale, readLocale);
@@ -254,6 +287,7 @@ export function applyClient(ctx: Context): void {
         </div>
         {finishClock && <p className="dte-finish">{t('finishAt', { time: finishClock })}</p>}
         {doneClock && <p className="dte-finish">{t('finishedAt', { time: doneClock })}</p>}
+        {snapshot && <EstimatorSwitch remote={remote} t={t} />}
         {timeline && <div className="dte-timeline" role="img" aria-label={`${elapsed} → ${range}`}>
           <div className="dte-timeline-track" aria-hidden="true">
             <span className="dte-timeline-done" style={{ width: `${timeline.now}%` }} />
