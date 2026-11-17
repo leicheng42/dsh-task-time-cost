@@ -8,6 +8,7 @@ import { formatNumber } from './format.ts';
 import { clockRange, compactTokens, compactTokenRange, costUnconfigured, formatClock, formatDuration, formatEta, formatEtaPoint, formatMoneyCompact, formatMoneyRangesCompact, isAssessing, isTerminal, localTiming, progressShare, remainingCostRanges, validSpan } from './format.ts';
 import { allowsPointEstimate } from '../shared/confidence.ts';
 import { progressState } from '../shared/progress-state.ts';
+import { estimateCopyText } from '../shared/copy-estimate.ts';
 import type { ProgressState } from '../shared/progress-state.ts';
 import type { ForecastConfidence } from '../shared/confidence.ts';
 import { en, zh, LOCALE_NAMESPACE } from './locale.ts';
@@ -115,6 +116,8 @@ export function applyClient(ctx: Context): void {
     const now = React.useSyncExternalStore(ticking ? store.clock.subscribe : idleSubscribe, ticking ? store.clock.getSnapshot : frozenNow, frozenNow);
     const [expanded, setExpanded] = React.useState(false);
     const [showHelp, setShowHelp] = React.useState(false);
+    const [copied, setCopied] = React.useState(false);
+    const [notifyOn, setNotifyOn] = React.useState(() => { try { return localStorage.getItem('dte.notify') === '1'; } catch { return false; } });
     const [view, setView] = React.useState<'summary' | 'more' | 'details' | 'settings'>('summary');
     const summary = React.useRef<HTMLButtonElement>(null);
     const panel = React.useRef<HTMLDivElement>(null);
@@ -274,6 +277,33 @@ export function applyClient(ctx: Context): void {
     const heroValue = terminal || !displayedRemaining ? elapsed : eta;
     const heroCaption = t(terminal || !displayedRemaining ? 'heroElapsed' : 'heroRemaining');
     const lineWithClock = finishPoint && !tail && !terminal ? t('etaWithClock', { value: line, clock: finishPoint }) : line;
+    const copyText = estimateCopyText({ sentence: statusText, finish: finishClock ? t('finishAt', { time: finishClock }) : null,
+      spent: `${t('factUsed')}${elapsed}`, cost: costUsed, tokens: tokenUsed, done: terminal });
+    const copy = () => {
+      const done = () => { setCopied(true); setTimeout(() => setCopied(false), 1600); };
+      try {
+        void navigator.clipboard?.writeText(copyText).then(done, () => fallback());
+      } catch { fallback(); }
+      function fallback() {
+        try {
+          const area = document.createElement('textarea');
+          area.value = copyText; area.style.position = 'fixed'; area.style.opacity = '0';
+          document.body.appendChild(area); area.select(); document.execCommand('copy'); document.body.removeChild(area); done();
+        } catch { /* clipboard unavailable; the panel text is still selectable */ }
+      }
+    };
+    const toggleNotify = () => {
+      const next = !notifyOn;
+      setNotifyOn(next);
+      try { localStorage.setItem('dte.notify', next ? '1' : '0'); } catch { /* private mode */ }
+      if (next) { try { void Notification.requestPermission?.(); } catch { /* unsupported */ } }
+    };
+    React.useEffect(() => {
+      if (!terminal || !notifyOn || !snapshot) return;
+      const key = `dte.notified:${snapshot.sessionId}:${snapshot.turn}`;
+      try { if (localStorage.getItem(key)) return; localStorage.setItem(key, '1'); } catch { /* ignore */ }
+      try { new Notification(t('notifyTitle'), { body: t('notifyBody', { elapsed }) }); } catch { /* permission denied */ }
+    }, [terminal, notifyOn, snapshot?.taskKey]);
     return <div className="dte" data-slot={tail ? 'assistant-actions' : 'composer-dock'}>
       <style>{styles}</style>
       <button type="button" className={tail ? 'dte-line dte-line-tail' : 'dte-line'} aria-haspopup="dialog" aria-expanded={expanded} aria-controls={`${id}-panel`}
@@ -319,6 +349,8 @@ export function applyClient(ctx: Context): void {
         <div id={`${id}-more`} className="dte-pop-actions" hidden={view === 'summary'}>
           <button type="button" className={view === 'details' ? 'dte-link dte-link-active' : 'dte-link'} aria-pressed={view === 'details'} onClick={() => setView(view === 'details' ? 'more' : 'details')}>{t('details')}</button>
           <button type="button" className={view === 'settings' ? 'dte-link dte-link-active' : 'dte-link'} aria-pressed={view === 'settings'} onClick={() => setView(view === 'settings' ? 'more' : 'settings')}>{t('settings')}</button>
+          <button type="button" className="dte-link" onClick={copy}>{copied ? t('copied') : t('copy')}</button>
+          <button type="button" className="dte-link" aria-pressed={notifyOn} onClick={toggleNotify}>{notifyOn ? t('notifyOn') : t('notifyOff')}</button>
           <span className="dte-spacer" />
           {view === 'details' && <button type="button" className="dte-link" disabled={state.pending} onClick={refresh}>{t('refresh')}</button>}
         </div>
