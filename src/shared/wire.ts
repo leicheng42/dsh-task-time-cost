@@ -60,6 +60,8 @@ export interface EstimateSnapshot {
   scope: 'current_turn';
   /** How strongly the panel may state a number; only 'stable' allows a point estimate. */
   confidence?: 'assessing' | 'preliminary' | 'calibrated' | 'stable';
+  /** Activity counts per 10s bucket over the last minute; progress evidence, not a percentage. */
+  activity?: number[];
   /** Recent high bounds of the remaining range, oldest first; a display trail only. */
   forecastTrail?: { at: number; highMs: number }[];
   /** Whole-session elapsed/remaining, filled by the Host when other turns of this session are known. */

@@ -4,8 +4,11 @@ import type { Context } from '@deepseek-ai/cordis';
 import type { ChatSnapshot, TurnTailChatData } from '@deepseek-ai/dsh-client-ui-chat/client';
 import type { EstimatorRemote } from '../shared/wire.ts';
 import { EstimateDetails } from './details.tsx';
+import { formatNumber } from './format.ts';
 import { clockRange, compactTokens, compactTokenRange, costUnconfigured, formatClock, formatDuration, formatEta, formatEtaPoint, formatMoneyCompact, formatMoneyRangesCompact, isAssessing, isTerminal, localTiming, progressShare, remainingCostRanges, validSpan } from './format.ts';
 import { allowsPointEstimate } from '../shared/confidence.ts';
+import { progressState } from '../shared/progress-state.ts';
+import type { ProgressState } from '../shared/progress-state.ts';
 import type { ForecastConfidence } from '../shared/confidence.ts';
 import { en, zh, LOCALE_NAMESPACE } from './locale.ts';
 import type { Translate } from './locale.ts';
@@ -158,6 +161,17 @@ export function applyClient(ctx: Context): void {
       : assessing ? t('assessing')
       : (active && sessionRemaining !== null || retained) ? t(retained ? 'etaRetained' : initialScope ? 'etaInitial' : snapshot?.forecastScope === 'whole_goal' ? 'etaGoal' : 'etaEstimate', { value: eta })
       : active ? t('computingShort') : t('titleShort');
+    const progress = progressState({ ended: terminal, elapsedMs: snapshot?.elapsedActiveMs ?? 0,
+      remainingHighMs: validSpan(displayedRemaining) ? displayedRemaining.high : null,
+      trail: (snapshot?.forecastTrail ?? []).map(point => point.highMs), completedCalls: snapshot?.calls.completed ?? 0 });
+    // One sentence answers "should I keep waiting"; the number is evidence inside it.
+    const statusLabel: Record<ProgressState, string> = {
+      done: t('stateDone', { elapsed }), starting: t('stateStarting'), unknown: t('stateUnknown'),
+      finishing: t('stateFinishing', { value: range }), faster: t('stateFaster', { value: range }),
+      slower: t('stateSlower', { value: range }), onTrack: t('stateOnTrack', { value: range }),
+    };
+    const statusText = statusLabel[progress.state];
+    const showsNumber = progress.state !== 'done' && progress.state !== 'starting' && progress.state !== 'unknown';
     const unconfigured = !!snapshot && costUnconfigured(snapshot);
     const referencePrice = snapshot?.reasons.includes('public-reference-price-not-provider-bill') ?? false;
     // A real timeline: the bar spans from task start to the latest predicted
@@ -244,21 +258,18 @@ export function applyClient(ctx: Context): void {
             <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="3" cy="8" r="1.2" fill="currentColor" /><circle cx="8" cy="8" r="1.2" fill="currentColor" /><circle cx="13" cy="8" r="1.2" fill="currentColor" /></svg>
           </button>
         </div>
-        <div className="dte-hero">
-          <span className="dte-hero-value dte-tabular">{snapshot ? heroValue : t('unknown')}</span>
-          <span className="dte-hero-caption">{heroCaption}</span>
-        </div>
-        {overrun && !terminal && <p className="dte-finish">{t('overrun')}</p>}
-        {finishClock && <p className="dte-finish">{t('finishAt', { time: finishClock })}</p>}
-        {doneClock && <p className="dte-finish">{t('finishedAt', { time: doneClock })}</p>}
-        {timeline && <div className="dte-timeline" role="img" aria-label={`${elapsed} → ${range}`}>
-          <div className="dte-timeline-track" aria-hidden="true">
-            <span className="dte-timeline-done" style={{ width: `${timeline.now}%` }} />
-            <span className="dte-timeline-band" style={{ left: `${timeline.bandFrom}%`, width: `${Math.max(1, timeline.bandTo - timeline.bandFrom)}%` }} />
-            {timeline.marker != null && <span className="dte-timeline-dot" style={{ left: `${timeline.marker}%` }} />}
-            <span className="dte-timeline-now" style={{ left: `${timeline.now}%` }} />
-          </div>
-          <div className="dte-timeline-labels" aria-hidden="true"><span>{timeline.start}</span><span>{timeline.finish}</span></div>
+        <p className={showsNumber ? 'dte-status dte-tabular' : 'dte-status dte-status-plain'}>{statusText}</p>
+        {progress.state !== 'done' && progress.state !== 'starting' && (finishClock
+          ? <p className="dte-finish">{t('finishAt', { time: finishClock })}</p>
+          : <p className="dte-finish dte-muted">{t('noFinishTime')}</p>)}
+        {progress.state === 'done' && doneClock && <p className="dte-finish">{t('finishedAt', { time: doneClock })}</p>}
+        {overrun && progress.state !== 'done' && <p className="dte-finish dte-muted">{t('estimateStale')}</p>}
+        {snapshot && !terminal && <div className="dte-activity" role="img" aria-label={t('activityLabel')}>
+          <span className="dte-activity-counts dte-tabular">{t('activityCounts', { calls: formatNumber(snapshot.calls.completed, localeSnapshot.active, t), steps: formatNumber(snapshot.tools.completed, localeSnapshot.active, t) })}</span>
+          <span className="dte-activity-band" aria-hidden="true">{(snapshot.activity ?? []).map((value, index) => {
+            const max = Math.max(...(snapshot.activity ?? [1]), 1);
+            return <i key={index} style={{ height: `${Math.max(10, Math.round(value / max * 100))}%` }} />;
+          })}</span>
         </div>}
         {snapshot && <p className="dte-facts dte-tabular">
           <span>{t('factUsed')}<b>{elapsed}</b></span>

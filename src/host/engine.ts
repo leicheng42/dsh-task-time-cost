@@ -474,6 +474,16 @@ export class EstimatorEngine {
       if (!trail.length || Math.abs(trail[trail.length - 1]!.highMs - remaining.high) > remaining.high * 0.05) trail.push({ at: now, highMs: remaining.high });
       this.forecastTrail.set(key, trail.slice(-10));
     }
+    // Progress evidence: how much actually happened in each of the last six
+    // ten-second buckets. A flat band means the task stalled; a busy one means it
+    // is working, which no percentage can tell when the total is unknown.
+    const activity = Array.from({ length: 6 }, (_, index) => {
+      const from = now - (6 - index) * 10_000;
+      const to = now - (5 - index) * 10_000;
+      const calls = task.calls.filter(call => call.startedAt >= from && call.startedAt < to).length;
+      const tools = Object.values(task.tools).filter(tool => tool.startedAt >= from && tool.startedAt < to).length;
+      return calls + tools;
+    });
     const initial = saved?.current.initial ?? (task.endedAt === null && task.promptChars > 0 && this.startedHere.has(key) ? { estimatedTotalMs: remaining ? { low: elapsedActive + remaining.low, high: elapsedActive + remaining.high } : null, estimatedTotalCost: totalCost } : null);
     const snapshot: EstimateSnapshot = snapshotSchema.parse({
       taskKey: key, sessionId, turn: task.turn, revision: Math.max(1, (cached?.snapshot.revision ?? saved?.current.revision ?? 0) + 1), algorithmVersion: ALGORITHM_VERSION,
@@ -500,7 +510,7 @@ export class EstimatorEngine {
       tools: { completed: completedTools.length, active: activeTools.length, workMs: toolWorkMs },
       performance: { ...route, firstContentMs: performanceEstimate.firstContentMs, firstTextMs: performanceEstimate.firstTextMs, visibleTps: performanceEstimate.visibleTps, totalCallMs: performanceEstimate.totalCallMs, source: `${performanceEstimate.sourceKind}:${performanceEstimate.match}`, trust: performanceEstimate.trust, metricOrigins: performanceEstimate.metricOrigins, stale: performanceEstimate.reasons.includes('stale-profile-retained-for-audit') },
       priceSources: [...new Set(usageCalls.flatMap(call => call.resolution.entry ? [`${call.resolution.entry.id}@${call.resolution.entry.version}${call.resolution.entry.sourceUrl ? ` ${call.resolution.entry.sourceUrl}` : ''}`] : []))],
-      confidence, forecastTrail: [...(this.forecastTrail.get(key) ?? [])],
+      confidence, forecastTrail: [...(this.forecastTrail.get(key) ?? [])], activity,
       initial, error: errors, reasons: [...new Set([...reasons, ...observed.reasons])], scope: 'current_turn',
     });
     this.latest.set(key, { revision, at: now, snapshot });
