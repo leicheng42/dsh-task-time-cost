@@ -83,9 +83,13 @@ export function applyClient(ctx: Context): void {
   const subscribeLocale = (listener: () => void) => locale.subscribe(listener);
   const readLocale = () => locale.getSnapshot();
 
-  /** Standard hover/focus hint: a portal near the element, clamped to the viewport. */
-  function Tooltip({ text: tip, children }: { text: string; children: React.ReactNode }) {
-    const anchor = React.useRef<HTMLSpanElement>(null);
+  /**
+   * Hover and keyboard hint. The wrapped element itself becomes the focus
+   * target: a display:contents wrapper paints no box, so Chrome refuses to focus
+   * it and the hint would be unreachable from the keyboard.
+   */
+  function Tooltip({ text: tip, children }: { text: string; children: React.ReactElement }) {
+    const anchor = React.useRef<HTMLElement>(null);
     const [position, setPosition] = React.useState<{ left: number; top: number; above: boolean } | null>(null);
     const show = () => {
       const element = anchor.current;
@@ -95,10 +99,19 @@ export function applyClient(ctx: Context): void {
       setPosition({ left: Math.min(Math.max(box.left + box.width / 2, 140), window.innerWidth - 140), top: above ? box.top - 10 : box.bottom + 10, above });
     };
     const hide = () => setPosition(null);
-    return <span ref={anchor} className="dte-tip" tabIndex={0} onMouseEnter={show} onMouseLeave={hide} onFocus={show} onBlur={hide}>
-      {children}
+    const props = children.props as { className?: string };
+    const decorated = React.cloneElement(children, {
+      ref: anchor,
+      tabIndex: 0,
+      className: [props.className, 'dte-tip-subject'].filter(Boolean).join(' '),
+      onMouseEnter: show,
+      onMouseLeave: hide,
+      onFocus: show,
+      onBlur: hide,
+    } as Record<string, unknown>);
+    return <>{decorated}
       {position && createPortal(<span className="dte-tip-card" role="tooltip" style={{ left: position.left, top: position.top, transform: `translate(-50%, ${position.above ? '-100%' : '0'})` }}>{tip}</span>, document.body)}
-    </span>;
+    </>;
   }
 
   function EstimateWidget({ props, tail }: { props: SlotProps; tail: boolean }) {

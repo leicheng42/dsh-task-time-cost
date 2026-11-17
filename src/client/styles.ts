@@ -111,7 +111,11 @@ export const styles = `
 .dte .dte-trail-bars i{flex:1;min-width:3px;max-width:10px;border-radius:2px 2px 0 0;background:color-mix(in srgb,var(--dsw-alias-brand-primary) 45%,transparent)}
 .dte .dte-status{margin:10px 0 0;color:var(--dsw-alias-label-primary);font-size:16px;line-height:1.4;font-weight:500}
 .dte .dte-status-plain{font-size:14px;font-weight:500}
-.dte .dte-tip{display:contents;cursor:help}
+.dte .dte-tip-subject{cursor:help}
+/* display:contents paints nothing, so the ring goes on the child the keyboard user reached. */
+.dte .dte-tip-subject:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:3px;border-radius:6px}
+.dte button:focus-visible, .dte a:focus-visible, .dte [tabindex]:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px;border-radius:6px}
+.dte .dte-tip-card{transition:opacity .12s ease}
 .dte .dte-tip-card{position:fixed;z-index:2000000000;max-width:260px;padding:8px 10px;border-radius:8px;background:var(--dsw-alias-bg-layer-2,var(--dsw-alias-bg-base));color:var(--dsw-alias-label-secondary);font-size:11px;line-height:1.5;box-shadow:0 8px 24px rgba(0,0,0,.18);pointer-events:none}
 .dte .dte-activity{display:flex;align-items:center;gap:10px;margin:12px 0 0}
 .dte .dte-activity-counts{color:var(--dsw-alias-label-tertiary);font-size:11px;white-space:nowrap}
