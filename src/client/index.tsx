@@ -147,6 +147,8 @@ export function applyClient(ctx: Context): void {
     const assessing = !!snapshot && isAssessing(snapshot) && sessionRemaining === null;
     // An overrun makes the retained number a lie: show the elapsed fact instead.
     const overrun = !!snapshot?.reasons.includes('initial-forecast-exceeded') || !!snapshot?.reasons.includes('plan-below-observed-effort');
+    // A fallback band is a range, not a plan: say where it came from.
+    const banded = !!snapshot?.reasons.includes('initial-band-fallback') || !!snapshot?.reasons.includes('elapsed-only-band');
     const displayedRemaining = assessing ? null : sessionRemaining ?? (overrun ? null : retained?.remainingMs);
     const range = formatEta(displayedRemaining, t);
     // Only a stable forecast may collapse into one number; everything else keeps
@@ -225,7 +227,7 @@ export function applyClient(ctx: Context): void {
     };
     const costRemaining = snapshot ? remainingCostRanges(snapshot) : null;
     // The completion clock is what turns an estimate into a plan: "by when".
-    const finishClock = !terminal && !overrun && validSpan(displayedRemaining) ? clockRange(displayedRemaining, now, localeSnapshot.active, t) : null;
+    const finishClock = !terminal && validSpan(displayedRemaining) ? clockRange(displayedRemaining, now, localeSnapshot.active, t) : null;
     // The entry line has room for one time, so it prints the central one.
     const finishPoint = !terminal && validSpan(displayedRemaining)
       ? formatClock(now + (sessionRemaining !== null ? snapshot?.remainingTypicalMs ?? displayedRemaining.high : retained?.remainingTypicalMs ?? displayedRemaining.high), localeSnapshot.active, now, t)
@@ -263,6 +265,7 @@ export function applyClient(ctx: Context): void {
           ? <p className="dte-finish">{t('finishAt', { time: finishClock })}</p>
           : <p className="dte-finish dte-muted">{t('noFinishTime')}</p>)}
         {progress.state === 'done' && doneClock && <p className="dte-finish">{t('finishedAt', { time: doneClock })}</p>}
+        {banded && progress.state !== 'done' && <p className="dte-finish dte-muted">{t('bandNote')}</p>}
         {overrun && progress.state !== 'done' && <p className="dte-finish dte-muted">{t('estimateStale')}</p>}
         {snapshot && !terminal && (() => {
           const buckets = snapshot.activity ?? [];

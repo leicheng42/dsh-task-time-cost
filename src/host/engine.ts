@@ -16,7 +16,7 @@ import { estimateContinuation, estimateWorkloadTime } from '../shared/time.ts';
 import type { RequestProgress } from '../shared/time.ts';
 import { applyAiPlan } from '../shared/ai-plan.ts';
 import { forecastCorrection } from '../shared/forecast-guard.ts';
-import { initialBandFallback } from '../shared/fallback-band.ts';
+import { elapsedOnlyBand, initialBandFallback } from '../shared/fallback-band.ts';
 import { forecastConfidence, rangeRatio } from '../shared/confidence.ts';
 import type { AiPlan, AiPlanInput } from '../shared/ai-plan.ts';
 import type { RouteIdentity, Span, TaskKind } from '../shared/types.ts';
@@ -419,7 +419,7 @@ export class EstimatorEngine {
       reasons.push('estimator-refreshed-estimate');
     } else if (task.endedAt === null && remaining === null) {
       const initialSpan = saved?.current.initial?.estimatedTotalMs ?? (this.firstForecast.has(key) ? { low: 0, high: this.firstForecast.get(key)! } : null);
-      const band = initialBandFallback(initialSpan, elapsedActive);
+      const band = initialBandFallback(initialSpan, elapsedActive) ?? elapsedOnlyBand(elapsedActive);
       if (band) {
         remaining = { low: band.low, high: band.high };
         typical = (remaining.low + remaining.high) / 2;

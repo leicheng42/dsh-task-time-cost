@@ -22,3 +22,13 @@ test('no band before evidence exists or without an initial estimate', () => {
   assert.equal(initialBandFallback(null, 600_000), null);
   assert.equal(initialBandFallback({ low: 1, high: 2 }, 60_000), null, 'under five minutes a band would be noise');
 });
+
+test('without any recorded initial estimate the elapsed time still yields a labelled band', async () => {
+  const { elapsedOnlyBand } = await import('../../src/shared/fallback-band.ts');
+  const band = elapsedOnlyBand(2 * 3_600_000 + 12 * 60_000);
+  assert.ok(band);
+  assert.equal(band!.reason, 'elapsed-only-band');
+  assert.ok(band!.low >= 30 * 60_000, 'two hours implies more than half an hour to go');
+  assert.ok(band!.high >= band!.low * 2);
+  assert.equal(elapsedOnlyBand(60_000), null, 'a minute of work proves nothing');
+});

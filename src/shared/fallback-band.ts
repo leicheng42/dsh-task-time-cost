@@ -14,3 +14,14 @@ export function initialBandFallback(
   const remainingHigh = Math.max(remainingLow * 2, initial.high - elapsedMs, elapsedMs * 0.5);
   return { low: Math.round(remainingLow), high: Math.round(remainingHigh), reason: 'initial-band-fallback' };
 }
+
+/**
+ * Even without a recorded initial estimate the elapsed time is evidence: a turn
+ * that has already run for two hours is not "almost done", and staying blank is
+ * worse than saying "at least this much longer". Wide on purpose, always labelled.
+ */
+export function elapsedOnlyBand(elapsedMs: number): { low: number; high: number; reason: string } | null {
+  if (!Number.isFinite(elapsedMs) || elapsedMs < 300_000) return null;
+  const low = Math.max(60_000, Math.round(elapsedMs * 0.25));
+  return { low, high: Math.max(low * 2, Math.round(elapsedMs)), reason: 'elapsed-only-band' };
+}

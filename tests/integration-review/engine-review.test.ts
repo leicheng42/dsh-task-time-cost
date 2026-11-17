@@ -635,17 +635,21 @@ test('review/profiles: calibration read exposes measured latency, speed, samples
   assert.equal(env.repository.error, null, env.logs.join('\n'));
 });
 
-test('review/continuation: a consumed plan stays unknown across new attempts without matching task history', async t => {
+test('review/continuation: a consumed plan without history falls back to a labelled band instead of staying blank', async t => {
   const env = await environment(t, liveConfig()), current = task(env.now());
   const fixture = callFixture(env.now());
   current.calls = [fixture.fact];
   env.advance(20 * 60_000);
   const before = env.engine.estimate('review-session', current, 10, true);
-  assert.equal(before.remainingMs, null, 'Exhausting a one-call plan does not imply a few seconds remain');
+  // 0.8: a consumed plan with no history used to return null forever. A running
+  // turn must still answer, so it falls back to a wide band and says so.
+  assert.ok(before.remainingMs, 'A long turn never leaves the panel blank');
+  assert.ok(before.remainingMs!.high >= before.remainingMs!.low);
+  assert.ok(before.reasons.some(reason => reason === 'initial-band-fallback' || reason === 'elapsed-only-band'));
   assert.ok(before.reasons.includes('continuation-history-insufficient'));
   env.engine.onStream('review-session', { type: 'start', attemptId: 'continuation-attempt' as LlmAttemptId, revision: 1, turn: 1, step: 2 }, liveState(current));
   const during = env.engine.estimate('review-session', current, 11, true);
-  assert.equal(during.remainingMs, null, 'A new request must not revive the consumed one-call budget');
+  assert.ok(during.remainingMs, 'A new request keeps the labelled fallback rather than reviving the consumed one-call budget');
   assert.deepEqual(during.calls.expected, { low: 2, high: 2 }, 'The observed request still expands both cost scenarios without turning them into a complete forecast');
   assert.equal(during.estimatedTotalCost, null);
   assert.equal(during.forecastCostStatus, 'unavailable');
@@ -672,7 +676,10 @@ test('review/continuation: matching finished tasks replace a consumed plan, whil
   assert.ok(estimate.reasons.includes('continuation-local-task-history'));
   assert.equal(estimate.estimatedTotalCost, null, 'Duration history is not a future token/cost budget');
   const anotherRoute = { ...current, route: { ...routeFact, modelId: 'another-model' } };
-  assert.equal(env.engine.estimate('another-session', anotherRoute, 12, true).remainingMs, null);
+  const otherRoute = env.engine.estimate('another-session', anotherRoute, 12, true);
+  // Another route has no matching history, but the labelled fallback still answers.
+  assert.ok(otherRoute.remainingMs, 'no matching history still yields a labelled band');
+  assert.ok(otherRoute.reasons.some(reason => reason.endsWith('-band')));
   assert.equal(env.repository.error, null, env.logs.join('\n'));
 });
 

@@ -219,7 +219,31 @@ export async function apply(ctx: Context, rawConfig: unknown): Promise<void> {
    * A plan can run out mid-turn (the agent did more rounds than it predicted),
    * and then nothing estimates the rest. Every few minutes, while the turn is
    * still running and no estimate exists, ask the model once what remains.
+   * Turns that started before this plugin mounted are picked up on the first
+   * event instead of being left without an estimate forever.
    */
+  function attemptRefresh(session: Session, turn: number): void {
+    const state = projection.stateOf(session);
+    const task = state.tasks[String(turn)];
+    if (!task || task.endedAt !== null) return;
+    let snapshot: ReturnType<typeof engine.estimate> | null = null;
+    try { snapshot = engine.estimate(session.id, task, state.view.revision ?? 0); } catch { snapshot = null; }
+    if (!snapshot || snapshot.remainingMs || snapshot.elapsedActiveMs < 5 * 60_000) return;
+    if (!engine.needsRefresh(session.id, turn)) return;
+    const text = taskTexts.get(session.id);
+    if (!text) return;
+    const avgRound = snapshot.elapsedActiveMs / Math.max(1, snapshot.calls.completed);
+    engine.markRefreshAttempt(session.id, turn);
+    void (async () => {
+      const plan = await requestEstimatorPlan(ctx, config.estimatorModel,
+        { providerId: task.route?.providerId ?? null, modelId: task.route?.modelId ?? null }, text,
+        { elapsedMs: snapshot!.elapsedActiveMs, completedCalls: snapshot!.calls.completed, refresh: true });
+      if (!plan) return;
+      const low = plan.remainingCalls.low * avgRound * 0.6 + plan.remainingToolSeconds.low * 1_000;
+      const high = plan.remainingCalls.high * avgRound * 1.8 + plan.remainingToolSeconds.high * 1_000;
+      engine.setRefreshedRemaining(session.id, turn, { low: Math.max(60_000, low), high: Math.max(120_000, high) });
+    })().catch(() => undefined);
+  }
   function startRefreshLoop(session: Session, turn: number): void {
     const key = `${session.id}:${turn}`;
     if (refreshTimers.has(key)) return;
@@ -228,30 +252,22 @@ export async function apply(ctx: Context, rawConfig: unknown): Promise<void> {
       const state = projection.stateOf(session);
       const task = state.tasks[String(turn)];
       if (!task || task.endedAt !== null) return;
-      let snapshot: ReturnType<typeof engine.estimate> | null = null;
-      try { snapshot = engine.estimate(session.id, task, state.view.revision ?? 0); } catch { snapshot = null; }
-      const elapsed = snapshot?.elapsedActiveMs ?? 0;
-      if (snapshot && !snapshot.remainingMs && elapsed > 5 * 60_000 && engine.needsRefresh(session.id, turn)) {
-        const text = taskTexts.get(session.id);
-        const avgRound = elapsed / Math.max(1, snapshot.calls.completed);
-        if (text) {
-          engine.markRefreshAttempt(session.id, turn);
-          void (async () => {
-            const plan = await requestEstimatorPlan(ctx, config.estimatorModel,
-              { providerId: task.route?.providerId ?? null, modelId: task.route?.modelId ?? null }, text,
-              { elapsedMs: elapsed, completedCalls: snapshot!.calls.completed, refresh: true });
-            if (!plan) return;
-            const low = plan.remainingCalls.low * avgRound * 0.6 + plan.remainingToolSeconds.low * 1_000;
-            const high = plan.remainingCalls.high * avgRound * 1.8 + plan.remainingToolSeconds.high * 1_000;
-            engine.setRefreshedRemaining(session.id, turn, { low: Math.max(60_000, low), high: Math.max(120_000, high) });
-          })().catch(() => undefined);
-        }
-      }
-      const timer = setTimeout(tick, 5 * 60_000);
-      refreshTimers.set(key, timer);
+      attemptRefresh(session, turn);
+      refreshTimers.set(key, setTimeout(tick, 5 * 60_000));
     };
-    const first = setTimeout(tick, 5 * 60_000);
-    refreshTimers.set(key, first);
+    refreshTimers.set(key, setTimeout(tick, 5 * 60_000));
+  }
+  function observeRunningTurn(session: Session): void {
+    const state = projection.stateOf(session);
+    const turn = state.currentTurn;
+    if (turn === null) return;
+    const task = state.tasks[String(turn)];
+    if (!task || task.endedAt !== null) return;
+    const key = `${session.id}:${turn}`;
+    if (refreshTimers.has(key)) return;
+    startRefreshLoop(session, turn);
+    // Adopt turns that began before this plugin mounted: try right away.
+    attemptRefresh(session, turn);
   }
   function observeEstimatorInput(session: Session, event: { type: string; data: unknown }): void {
     if (event.type === 'user/message') {
@@ -293,6 +309,7 @@ export async function apply(ctx: Context, rawConfig: unknown): Promise<void> {
   ctx.effect(() => () => { for (const timer of estimatorTimers) clearTimeout(timer); estimatorTimers.clear(); for (const timer of refreshTimers.values()) clearTimeout(timer); refreshTimers.clear(); taskTexts.clear(); estimatorRequested.clear(); });
   ctx.on('session/event', (session, event) => {
     if (config.estimatorModel.enabled) observeEstimatorInput(session, event);
+    if (config.estimatorModel.enabled && !refreshTimers.has(`${session.id}:${projection.stateOf(session).currentTurn ?? ''}`)) observeRunningTurn(session);
     const agent = ctx.agents.get(session.id);
     safe(agent, () => {
       const state = projection.stateOf(session);
