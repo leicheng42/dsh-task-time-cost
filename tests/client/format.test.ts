@@ -10,24 +10,24 @@ const t = translator();
 test('wide estimates retain a numeric central reference and disclose the original bounds', async () => {
   const { formatEtaPoint } = await import('../../src/client/format.ts');
   const range = { low: 120_000, high: 2_400_000 };
-  assert.equal(formatEtaPoint(range, t, 600_000), 'about 10m');
-  assert.equal(formatEtaPoint(range, t), 'about 20m');
-  assert.equal(formatEta(range, t), '2m–40m');
+  assert.equal(formatEtaPoint(range, t, 600_000), 'about 10 分钟');
+  assert.equal(formatEtaPoint(range, t), 'about 20 分钟');
+  assert.equal(formatEta(range, t), '2–40 分钟');
   assert.deepEqual(range, { low: 120_000, high: 2_400_000 });
   assert.equal(formatEtaPoint(null, t), 'Unknown');
 });
 
 test('duration distinguishes zero, unknown, subsecond latency, and ordered ranges', () => {
-  assert.equal(formatDuration(0, t), '0s');
+  assert.equal(formatDuration(0, t), '0 秒');
   assert.equal(formatDuration(null, t), 'Unknown');
   assert.equal(formatDuration(Number.NaN, t), 'Unknown');
   assert.equal(formatDuration(-1, t), 'Unknown');
-  assert.equal(formatDuration(61_999, t), '1m 1s');
-  assert.equal(formatDuration(3_661_000, t), '1h 1m');
-  assert.equal(formatDurationRange({ low: 60_000, high: 120_000 }, t), '1m–2m', 'a whole minute never prints a zero-second remainder');
+  assert.equal(formatDuration(61_999, t), '1 分 1 秒');
+  assert.equal(formatDuration(3_661_000, t), '1 小时 1 分');
+  assert.equal(formatDurationRange({ low: 60_000, high: 120_000 }, t), '1–2 分钟', 'a whole minute never prints a zero-second remainder');
   assert.equal(formatDurationRange({ low: 200, high: 100 }, t), 'Unknown');
   assert.equal(formatLatency(250, 'en', t), '250ms');
-  assert.equal(formatLatency(1_230, 'en', t), '1.23s');
+  assert.equal(formatLatency(1_230, 'en', t), '1.23 秒');
 });
 
 test('decimal cost formatting preserves tiny prices and integers above 2^53', () => {
@@ -141,28 +141,28 @@ test('number and token formatting preserve null separately from zero', () => {
 test('both locale dictionaries cover every UI key and interpolate in the selected language', () => {
   assert.deepEqual(Object.keys(zh).sort(), Object.keys(en).sort());
   const z = translator(zh);
-  assert.equal(formatDuration(61_000, z), '1m 1s');
+  assert.equal(formatDuration(61_000, z), '1 分 1 秒');
   assert.equal(formatState('waiting_user', z), '等待用户');
   assert.equal(costSummary(snapshot({ forecastCostStatus: 'partial' }), 'zh', z), '已知部分：USD 0.01');
 });
 
-test('durations use latin unit letters in both locales and drop seconds once past ten minutes', () => {
+test('English keeps latin unit letters while Chinese spells the unit out, and both drop seconds past ten minutes', () => {
   const z = translator(zh);
-  assert.equal(formatDuration(9_000, z), '9s');
-  assert.equal(formatDuration(125_000, z), '2m 5s');
-  assert.equal(formatDuration(10 * 60_000, z), '10m', 'a long ETA must not imply second-level precision');
-  assert.equal(formatDuration(3 * 3_600_000 + 25 * 60_000, z), '3h 25m');
-  assert.equal(formatDuration(11 * 3_600_000, z), '11h');
-  assert.equal(formatDuration(61_000, t), '1m 1s');
+  assert.equal(formatDuration(9_000, z), '9 秒');
+  assert.equal(formatDuration(125_000, z), '2 分 5 秒');
+  assert.equal(formatDuration(10 * 60_000, z), '10 分钟', 'a long ETA must not imply second-level precision');
+  assert.equal(formatDuration(3 * 3_600_000 + 25 * 60_000, z), '3 小时 25 分');
+  assert.equal(formatDuration(11 * 3_600_000, z), '11 小时');
+  assert.equal(formatDuration(61_000, t), '1 分 1 秒');
 });
 
 test('ETA bounds are rounded to a coarse step so the chip keeps a stable width', () => {
   const z = translator(zh);
-  assert.equal(formatEta({ low: 9_000, high: 69_000 }, z), '≤2m', 'a tiny lower bound must not be rounded up into a false minimum');
-  assert.equal(formatEta({ low: 40_000, high: 40_000 }, z), '30s–45s');
-  assert.equal(formatEta({ low: 8 * 60_000 + 30_000, high: 30 * 60_000 }, z), '8m–30m', 'the requested compact form never mixes minute bounds with stray seconds');
-  assert.equal(formatEta({ low: 0, high: 0 }, z), '0s');
-  assert.equal(formatEta({ low: 600_000, high: 900_000 }, z), '10m–15m');
+  assert.equal(formatEta({ low: 9_000, high: 69_000 }, z), '≤2 分钟', 'a tiny lower bound must not be rounded up into a false minimum');
+  assert.equal(formatEta({ low: 40_000, high: 40_000 }, z), '30–45 秒');
+  assert.equal(formatEta({ low: 8 * 60_000 + 30_000, high: 30 * 60_000 }, z), '8–30 分钟', 'the requested compact form never mixes minute bounds with stray seconds');
+  assert.equal(formatEta({ low: 0, high: 0 }, z), '0 秒');
+  assert.equal(formatEta({ low: 600_000, high: 900_000 }, z), '10–15 分钟');
   assert.equal(formatEta({ low: 100, high: 50 }, z), '未知', 'an invalid span is unknown, never a guess');
   assert.equal(formatEta(null, z), '未知');
 });
@@ -170,7 +170,7 @@ test('ETA bounds are rounded to a coarse step so the chip keeps a stable width',
 test('very broad ETA references are identified without truncating the underlying bounds', () => {
   const wide = { low: 120_000, high: 2_400_000 };
   assert.equal(isWideEta(wide), true);
-  assert.equal(formatEta(wide, t), '2m–40m', 'The full computed range remains available in the dialog');
+  assert.equal(formatEta(wide, t), '2–40 分钟', 'The full computed range remains available in the dialog');
   assert.equal(isWideEta({ low: 600_000, high: 900_000 }), false);
   assert.equal(isWideEta({ low: 0, high: 120_000 }), false);
   assert.equal(isWideEta(null), false);
@@ -197,14 +197,14 @@ test('profile rows separate measured values from reference priors', () => {
     visibleTps: null, priorVisibleTps: 50, totalCallMs: 40_000, totalCallSamples: 0, firstTextSamples: 0, speedSamples: 0,
     failedCalls: 0, testedAt: null, sourceKind: 'heuristic' };
   const prior = formatProfileMetrics(base, 'en', t);
-  assert.equal(prior.latency, 'reference 1.5s', 'A prior latency without local samples must not look measured');
+  assert.equal(prior.latency, 'reference 1.5 秒', 'A prior latency without local samples must not look measured');
   assert.equal(prior.speed, 'reference 50 tokens/s');
   assert.equal(prior.samples, 'samples 0');
   assert.equal(prior.measured, 'not measured yet');
   assert.equal(prior.source, 'Source: Heuristic assumptions', 'The row names the prior behind reference values');
   const measured = formatProfileMetrics({ ...base, visibleTps: 42.5, totalCallSamples: 3, firstTextSamples: 3, speedSamples: 2,
     testedAt: Date.UTC(2026, 10, 12, 12, 31) }, 'en', t);
-  assert.equal(measured.latency, '1.5s', 'Locally backed values are printed plainly');
+  assert.equal(measured.latency, '1.5 秒', 'Locally backed values are printed plainly');
   assert.equal(measured.speed, '42.5 tokens/s');
   assert.equal(measured.samples, 'samples 3');
   assert.match(measured.measured, /^last .+/);

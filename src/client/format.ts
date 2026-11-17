@@ -42,11 +42,25 @@ export function validSpan(range: Span | null | undefined): range is Span {
   return !!range && Number.isFinite(range.low) && Number.isFinite(range.high) && range.low >= 0 && range.low <= range.high;
 }
 
+/**
+ * "8 分钟–15 分钟" repeats the unit; "8–15 分钟" is how people write it. Merge
+ * only when both bounds are a single number wearing the same unit.
+ */
+function mergeSameUnit(low: string, high: string): string | null {
+  const pattern = /^(\d+)\s*([^\d\s]+)$/;
+  const left = pattern.exec(low.trim());
+  const right = pattern.exec(high.trim());
+  if (!left || !right || left[2] !== right[2]) return null;
+  const separator = /^[\x20-\x7e]+$/.test(left[2]) ? '' : ' ';
+  return `${left[1]}–${right[1]}${separator}${left[2]}`;
+}
+
 export function formatDurationRange(range: Span | null | undefined, t: Translate): string {
   if (!validSpan(range)) return t('unknown');
   const low = formatDuration(range.low, t);
   const high = formatDuration(range.high, t);
-  return low === high ? low : t('range', { low, high });
+  if (low === high) return low;
+  return mergeSameUnit(low, high) ?? t('range', { low, high });
 }
 
 /**
@@ -85,7 +99,8 @@ export function formatEta(range: Span | null | undefined, t: Translate): string 
   const low = formatCoarse(roundedLow, t);
   const high = formatCoarse(roundEta(range.high, 'up'), t);
   if (range.high > 0 && roundedLow === 0) return t('upTo', { value: high });
-  return low === high ? low : t('range', { low, high });
+  if (low === high) return low;
+  return mergeSameUnit(low, high) ?? t('range', { low, high });
 }
 
 /** A readable central reference; full bounds remain independently available. */
