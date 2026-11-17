@@ -104,6 +104,7 @@ export function applyClient(ctx: Context): void {
     const frozenNow = React.useCallback(() => state.receivedAt, [state.receivedAt]);
     const now = React.useSyncExternalStore(ticking ? store.clock.subscribe : idleSubscribe, ticking ? store.clock.getSnapshot : frozenNow, frozenNow);
     const [expanded, setExpanded] = React.useState(false);
+    const [showHelp, setShowHelp] = React.useState(false);
     const [view, setView] = React.useState<'summary' | 'more' | 'details' | 'settings'>('summary');
     const summary = React.useRef<HTMLButtonElement>(null);
     const panel = React.useRef<HTMLDivElement>(null);
@@ -190,6 +191,10 @@ export function applyClient(ctx: Context): void {
       ? t('stateRoundBudgetSpent', { started: formatNumber(rounds.started, localeSnapshot.active, t), max: formatNumber(rounds.max, localeSnapshot.active, t) })
       : banded && showsStatusNumber(progress.state) ? t('stateBanded', { value: range }) : statusLabel[progress.state];
     const showsNumber = showsStatusNumber(progress.state);
+    // One reason at a time: budget, band origin, stale plan. Never three notes stacked.
+    const activityPlain = t('activityPlain', { calls: formatNumber(snapshot?.calls.completed ?? 0, localeSnapshot.active, t), steps: formatNumber(snapshot?.tools.completed ?? 0, localeSnapshot.active, t), quiet: t('activityQuietShort') });
+    const reasonLine = budgetClose && !budgetSpent && roundsLeft !== null ? t('roundBudgetClose', { left: formatNumber(roundsLeft, localeSnapshot.active, t) })
+      : banded ? t('bandNote') : overrun ? t('estimateStale') : null;
     const unconfigured = !!snapshot && costUnconfigured(snapshot);
     const referencePrice = snapshot?.reasons.includes('public-reference-price-not-provider-bill') ?? false;
     // A real timeline: the bar spans from task start to the latest predicted
@@ -276,31 +281,34 @@ export function applyClient(ctx: Context): void {
             <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="3" cy="8" r="1.2" fill="currentColor" /><circle cx="8" cy="8" r="1.2" fill="currentColor" /><circle cx="13" cy="8" r="1.2" fill="currentColor" /></svg>
           </button>
         </div>
-        <p className={showsNumber ? 'dte-status dte-tabular' : 'dte-status dte-status-plain'}>{statusText}{showsNumber && <Hint id={`${id}-range-hint`} text={t('hintRange')} label={t('hintRangeLabel')} />}</p>
+        <p className={showsNumber ? 'dte-status dte-tabular' : 'dte-status dte-status-plain'}>{statusText}</p>
         {progress.state !== 'done' && progress.state !== 'starting' && (finishClock
           ? <p className="dte-finish">{t('finishAt', { time: finishClock })}</p>
           : <p className="dte-finish dte-muted">{t('noFinishTime')}</p>)}
         {progress.state === 'done' && doneClock && <p className="dte-finish">{t('finishedAt', { time: doneClock })}</p>}
-        {budgetClose && !budgetSpent && roundsLeft !== null && progress.state !== 'done' && <p className="dte-finish dte-muted">{t('roundBudgetClose', { left: formatNumber(roundsLeft, localeSnapshot.active, t) })}</p>}
-        {banded && progress.state !== 'done' && <p className="dte-finish dte-muted">{t('bandNote')}</p>}
-        {overrun && progress.state !== 'done' && <p className="dte-finish dte-muted">{t('estimateStale')}</p>}
+        {reasonLine && progress.state !== 'done' && <p className="dte-finish dte-muted">{reasonLine}</p>}
         {snapshot && !terminal && (() => {
           const buckets = snapshot.activity ?? [];
           const quiet = buckets.every(value => value === 0);
           const max = Math.max(...buckets, 1);
-          return <div className="dte-activity" role="img" aria-label={t('activityLabel')} title={t('hintActivity')}>
+          return <div className="dte-activity" role="img" aria-label={activityPlain}>
             <span className="dte-activity-counts dte-tabular">{t('activityCounts', { calls: formatNumber(snapshot.calls.completed, localeSnapshot.active, t), steps: formatNumber(snapshot.tools.completed, localeSnapshot.active, t) })}</span>
-            <Hint id={`${id}-activity-hint`} text={t('hintActivity')} label={t('hintActivityLabel')} />
             {quiet
               ? <span className="dte-activity-quiet">{t('activityQuiet')}</span>
               : <span className="dte-activity-band" aria-hidden="true">{buckets.map((value, index) => <i key={index} style={{ height: `${Math.max(12, Math.round(value / max * 100))}%` }} />)}</span>}
           </div>;
         })()}
-        {snapshot && <p className="dte-facts dte-tabular" title={t('hintFacts')}>
+        {snapshot && <p className="dte-facts dte-tabular">
           <span>{t('factUsed')}<b>{elapsed}</b></span>
           <span>{costUsed}</span>
           <span>{tokenUsed}</span>
         </p>}
+        {snapshot && <button type="button" className="dte-help-toggle" aria-expanded={showHelp} onClick={() => setShowHelp(value => !value)}>{t('helpToggle')}</button>}
+        {showHelp && <dl className="dte-help">
+          <div><dt>{t('helpRangeTitle')}</dt><dd>{t('hintRange')}</dd></div>
+          <div><dt>{t('helpActivityTitle')}</dt><dd>{activityPlain}</dd></div>
+          <div><dt>{t('helpFactsTitle')}</dt><dd>{t('hintFacts')}</dd></div>
+        </dl>}
         {footnote && <p className="dte-footnote">{footnote}</p>}
         {state.error && <p className="dte-error dte-small" role="alert">{errorText(state.error, t)}</p>}
         <div id={`${id}-more`} className="dte-pop-actions" hidden={view === 'summary'}>

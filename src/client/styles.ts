@@ -116,6 +116,12 @@ export const styles = `
 .dte button.dte-hint:hover,.dte button.dte-hint:focus-visible{color:var(--dsw-alias-label-secondary);border-color:var(--dsw-alias-label-tertiary)}
 .dte .dte-hint-bubble{position:absolute;left:0;top:calc(100% + 6px);z-index:5;width:230px;padding:8px 10px;border-radius:8px;background:var(--dsw-alias-bg-layer-2,var(--dsw-alias-bg-base));color:var(--dsw-alias-label-secondary);font-size:11px;line-height:1.5;box-shadow:0 6px 20px rgba(0,0,0,.16);opacity:0;visibility:hidden;transition:opacity .12s ease}
 .dte .dte-hint-wrap:hover .dte-hint-bubble,.dte .dte-hint-wrap:focus-within .dte-hint-bubble{opacity:1;visibility:visible}
+.dte button.dte-help-toggle{align-self:flex-start;margin:12px 0 0;padding:0;border:0;background:transparent;color:var(--dsw-alias-label-tertiary);font-size:11px;text-decoration:underline dotted;cursor:pointer}
+.dte button.dte-help-toggle:hover{color:var(--dsw-alias-label-secondary)}
+.dte .dte-help{margin:8px 0 0;padding:8px 10px;border-radius:8px;background:var(--dsw-alias-bg-layer-2,transparent);font-size:11px;line-height:1.5;color:var(--dsw-alias-label-secondary)}
+.dte .dte-help>div+div{margin-top:6px}
+.dte .dte-help dt{font-weight:600;color:var(--dsw-alias-label-primary)}
+.dte .dte-help dd{margin:0}
 .dte .dte-activity{display:flex;align-items:center;gap:10px;margin:12px 0 0}
 .dte .dte-activity-counts{color:var(--dsw-alias-label-tertiary);font-size:11px;white-space:nowrap}
 .dte .dte-activity-band{display:flex;align-items:flex-end;gap:2px;height:16px;flex:1;min-width:0}
