@@ -110,7 +110,7 @@ export function applyClient(ctx: Context): void {
       onBlur: hide,
     } as Record<string, unknown>);
     return <>{decorated}
-      {position && createPortal(<span className="dte-tip-card" role="tooltip" style={{ left: position.left, top: position.top, transform: `translate(-50%, ${position.above ? '-100%' : '0'})` }}>{tip}</span>, document.body)}
+      {position && createPortal(<span className="dte"><span className="dte-tip-card" role="tooltip" style={{ left: position.left, top: position.top, transform: `translate(-50%, ${position.above ? '-100%' : '0'})` }}>{tip}</span></span>, document.body)}
     </>;
   }
 
