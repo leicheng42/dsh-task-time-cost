@@ -25,3 +25,21 @@ export function elapsedOnlyBand(elapsedMs: number): { low: number; high: number;
   const low = Math.max(60_000, Math.round(elapsedMs * 0.25));
   return { low, high: Math.max(low * 2, Math.round(elapsedMs)), reason: 'elapsed-only-band' };
 }
+
+/**
+ * Pick the wider of the two last resorts. When the initial estimate is already
+ * spent, its remainder collapses onto the one-minute floor and says nothing, so
+ * the elapsed-time band is the honest choice.
+ */
+export function chooseFallbackBand(
+  initial: { low: number; high: number } | null,
+  elapsedMs: number,
+): { low: number; high: number; reason: string } | null {
+  const fromInitial = initialBandFallback(initial, elapsedMs);
+  const fromElapsed = elapsedOnlyBand(elapsedMs);
+  if (fromInitial && fromInitial.low > 60_000) {
+    const high = fromElapsed ? Math.max(fromInitial.high, fromElapsed.high) : fromInitial.high;
+    return { low: fromInitial.low, high, reason: fromInitial.reason };
+  }
+  return fromElapsed;
+}

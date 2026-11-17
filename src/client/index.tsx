@@ -167,13 +167,15 @@ export function applyClient(ctx: Context): void {
       remainingHighMs: validSpan(displayedRemaining) ? displayedRemaining.high : null,
       trail: (snapshot?.forecastTrail ?? []).map(point => point.highMs), completedCalls: snapshot?.calls.completed ?? 0 });
     // One sentence answers "should I keep waiting"; the number is evidence inside it.
+    function showsStatusNumber(state: ProgressState): boolean { return state !== 'done' && state !== 'starting' && state !== 'unknown'; }
     const statusLabel: Record<ProgressState, string> = {
       done: t('stateDone', { elapsed }), starting: t('stateStarting'), unknown: t('stateUnknown'),
       finishing: t('stateFinishing', { value: range }), faster: t('stateFaster', { value: range }),
       slower: t('stateSlower', { value: range }), onTrack: t('stateOnTrack', { value: range }),
     };
-    const statusText = statusLabel[progress.state];
-    const showsNumber = progress.state !== 'done' && progress.state !== 'starting' && progress.state !== 'unknown';
+    // A band inferred from elapsed time is not a plan: say so in the sentence.
+    const statusText = banded && showsStatusNumber(progress.state) ? t('stateBanded', { value: range }) : statusLabel[progress.state];
+    const showsNumber = showsStatusNumber(progress.state);
     const unconfigured = !!snapshot && costUnconfigured(snapshot);
     const referencePrice = snapshot?.reasons.includes('public-reference-price-not-provider-bill') ?? false;
     // A real timeline: the bar spans from task start to the latest predicted

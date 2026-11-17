@@ -31,7 +31,7 @@ export const en = {
   stateUnknown: 'Still running, no time estimate yet',
   stateFinishing: 'Almost done, {value} left',
   stateFaster: 'Faster than expected, {value} left', stateSlower: 'Slower than expected, {value} left',
-  stateOnTrack: 'On track, {value} left',
+  stateOnTrack: 'On track, {value} left', stateBanded: 'Still running, estimated {value} left',
   noFinishTime: 'No finish time yet', estimateStale: 'Earlier estimate expired, work continues', bandNote: 'Range inferred from the time already spent',
   activityLabel: 'Activity in the last minute', activityQuiet: 'no activity in the last minute', activityCounts: 'round {calls} · step {steps}',
 
@@ -323,7 +323,7 @@ export const zh: Record<MessageKey, string> = {
   stateUnknown: '还在跑，暂时看不出还要多久',
   stateFinishing: '看起来快到收尾了，剩 {value}',
   stateFaster: '比预估快，剩 {value}', stateSlower: '比预估慢，剩 {value}',
-  stateOnTrack: '正常推进，剩 {value}',
+  stateOnTrack: '正常推进，剩 {value}', stateBanded: '还在跑，按已用时间估算，剩 {value}',
   noFinishTime: '尚未能给出完成时间', estimateStale: '预估已失效，但仍在推进', bandNote: '区间按已用时间推算',
   activityLabel: '最近一分钟的活动密度', activityQuiet: '最近一分钟无活动（可能在等模型）', activityCounts: '第 {calls} 轮 · {steps} 步',
 

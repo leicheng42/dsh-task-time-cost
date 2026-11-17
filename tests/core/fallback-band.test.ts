@@ -32,3 +32,14 @@ test('without any recorded initial estimate the elapsed time still yields a labe
   assert.ok(band!.high >= band!.low * 2);
   assert.equal(elapsedOnlyBand(60_000), null, 'a minute of work proves nothing');
 });
+
+test('an already-spent initial estimate falls through to the elapsed band', async () => {
+  const { chooseFallbackBand } = await import('../../src/shared/fallback-band.ts');
+  // Twelve minutes in, a seven-minute initial total has nothing left to say.
+  const band = chooseFallbackBand({ low: 0, high: 7 * 60_000 }, 12 * 60_000);
+  assert.ok(band);
+  assert.equal(band!.reason, 'elapsed-only-band');
+  assert.ok(band!.low >= 3 * 60_000, 'a quarter of the elapsed time is the floor');
+  const withInitial = chooseFallbackBand({ low: 20 * 60_000, high: 60 * 60_000 }, 10 * 60_000);
+  assert.equal(withInitial!.reason, 'initial-band-fallback', 'a meaningful remainder still wins');
+});

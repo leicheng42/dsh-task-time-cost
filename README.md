@@ -2,7 +2,7 @@
 
 **让等待有个参考。** 在 DeepSeek Harness 的 Token 统计旁，查看剩余时间、实际用时和费用参考；预估随本地路由表现持续校准；模型预估默认开启，并默认复用当前会话的路由（不新增接收方）。
 
-[English](README.en.md) · [下载稳定版](https://github.com/leicheng42/dsh-task-time-cost/releases/tag/v0.8.1) · [使用指南](docs/public/guide.zh.md) · [反馈问题](https://github.com/leicheng42/dsh-task-time-cost/issues/new/choose)
+[English](README.en.md) · [下载稳定版](https://github.com/leicheng42/dsh-task-time-cost/releases/tag/v0.8.2) · [使用指南](docs/public/guide.zh.md) · [反馈问题](https://github.com/leicheng42/dsh-task-time-cost/issues/new/choose)
 
 [![Stable](https://img.shields.io/github/v/release/leicheng42/dsh-task-time-cost?label=stable)](https://github.com/leicheng42/dsh-task-time-cost/releases) [![CI](https://github.com/leicheng42/dsh-task-time-cost/actions/workflows/ci.yml/badge.svg)](https://github.com/leicheng42/dsh-task-time-cost/actions/workflows/ci.yml) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -12,7 +12,7 @@
 
 ## 它能帮你做什么
 
-0.8.1 提供以下功能：
+0.8.2 提供以下功能：
 
 - **一眼看到还要多久**：浮窗顶部只放中心时间，下面用一条刻度表示完整区间，端点标出范围；其余信息收进小卡片。
 - **只显示真正有用的信息**：未知的数值不再占一行，重复的范围会合并，说明文字压缩为一行；完整依据和精确金额在「⋯ → 预估详情」里。
@@ -33,10 +33,10 @@
 
 ## 安装
 
-在 DSH 的**插件管理 → 添加插件**中输入 `dsh-task-time-cost@0.8.1` 安装稳定版；两个分发渠道均提供预构建文件，无需运行安装脚本。
+在 DSH 的**插件管理 → 添加插件**中输入 `dsh-task-time-cost@0.8.2` 安装稳定版；两个分发渠道均提供预构建文件，无需运行安装脚本。
 
 ```sh
-dsh plugin --profile desktop add dsh-task-time-cost@0.8.1
+dsh plugin --profile desktop add dsh-task-time-cost@0.8.2
 ```
 
 也可从 GitHub Release 安装固定版本归档：
@@ -46,13 +46,13 @@ dsh plugin --profile desktop add dsh-task-time-cost@0.8.1
 3. 在会话底部 **Token 统计旁点击时钟**；预测 Token 直接显示，右上角 **⋯ → 设置与校准**查看本地路由数据。
 
 ```text
-https://github.com/leicheng42/dsh-task-time-cost/releases/download/v0.8.1/dsh-task-time-cost-0.8.1.tgz
+https://github.com/leicheng42/dsh-task-time-cost/releases/download/v0.8.2/dsh-task-time-cost-0.8.2.tgz
 ```
 
 CLI（将 desktop 换成你的实际 profile）：
 
 ```sh
-dsh plugin --profile desktop add https://github.com/leicheng42/dsh-task-time-cost/releases/download/v0.8.1/dsh-task-time-cost-0.8.1.tgz
+dsh plugin --profile desktop add https://github.com/leicheng42/dsh-task-time-cost/releases/download/v0.8.2/dsh-task-time-cost-0.8.2.tgz
 ```
 
 ## 支持范围

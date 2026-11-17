@@ -2,7 +2,7 @@
 
 **A reference for the wait.** See remaining time, actual duration and cost references beside native Token statistics in DeepSeek Harness, calibrated to local routes; the model-based estimate is on by default and reuses the session route.
 
-[中文](README.md) · [Download stable](https://github.com/leicheng42/dsh-task-time-cost/releases/tag/v0.8.1) · [User guide](docs/public/guide.en.md) · [Report an issue](https://github.com/leicheng42/dsh-task-time-cost/issues/new/choose)
+[中文](README.md) · [Download stable](https://github.com/leicheng42/dsh-task-time-cost/releases/tag/v0.8.2) · [User guide](docs/public/guide.en.md) · [Report an issue](https://github.com/leicheng42/dsh-task-time-cost/issues/new/choose)
 
 [![Stable](https://img.shields.io/github/v/release/leicheng42/dsh-task-time-cost?label=stable)](https://github.com/leicheng42/dsh-task-time-cost/releases) [![CI](https://github.com/leicheng42/dsh-task-time-cost/actions/workflows/ci.yml/badge.svg)](https://github.com/leicheng42/dsh-task-time-cost/actions/workflows/ci.yml) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -12,7 +12,7 @@
 
 ## What it does
 
-Version 0.8.1 provides these features:
+Version 0.8.2 provides these features:
 
 - **See the wait at a glance:** the panel leads with one central figure, a gauge for the full range with its bounds, then small cards for everything else.
 - **Only show what is useful:** unknown values no longer take a row, repeated ranges are merged, and the explanation is a single line; full evidence and exact amounts live under More → details.
@@ -34,10 +34,10 @@ Version 0.8.1 provides these features:
 
 ## Install
 
-In DSH **Plugin Manager → Add plugin**, enter `dsh-task-time-cost@0.8.1` for the stable release. Both channels supply prebuilt files with no installation scripts.
+In DSH **Plugin Manager → Add plugin**, enter `dsh-task-time-cost@0.8.2` for the stable release. Both channels supply prebuilt files with no installation scripts.
 
 ```sh
-dsh plugin --profile desktop add dsh-task-time-cost@0.8.1
+dsh plugin --profile desktop add dsh-task-time-cost@0.8.2
 ```
 
 Alternatively, install the pinned GitHub Release archive:
@@ -47,13 +47,13 @@ Alternatively, install the pinned GitHub Release archive:
 3. Open the **clock beside Token statistics** for forecast Tokens. **More (⋯) → Settings and calibration** shows route samples.
 
 ```text
-https://github.com/leicheng42/dsh-task-time-cost/releases/download/v0.8.1/dsh-task-time-cost-0.8.1.tgz
+https://github.com/leicheng42/dsh-task-time-cost/releases/download/v0.8.2/dsh-task-time-cost-0.8.2.tgz
 ```
 
 CLI (replace desktop with your profile):
 
 ```sh
-dsh plugin --profile desktop add https://github.com/leicheng42/dsh-task-time-cost/releases/download/v0.8.1/dsh-task-time-cost-0.8.1.tgz
+dsh plugin --profile desktop add https://github.com/leicheng42/dsh-task-time-cost/releases/download/v0.8.2/dsh-task-time-cost-0.8.2.tgz
 ```
 
 ## Supported scope
