@@ -233,6 +233,13 @@ export function applyClient(ctx: Context): void {
     };
     const rounds = snapshot?.goalRounds ?? null;
     const goalForecast = snapshot?.goalForecast ?? null;
+    // A goal turn answers the goal question first: the round is only a part of it.
+    const goalRange = goalForecast ? { low: goalForecast.lowMs, high: goalForecast.highMs } : null;
+    const goalSpent = snapshot?.goalSpentMs ?? 0;
+    const goalTotal = goalRange ? goalSpent + goalRange.high : null;
+    const goalSpentShare = goalTotal ? Math.min(100, Math.max(1.5, (goalSpent / goalTotal) * 100)) : null;
+    const goalLowShare = goalTotal && goalRange ? Math.min(100, ((goalSpent + goalRange.low) / goalTotal) * 100) : null;
+    const heroIsGoal = !!snapshot?.goalRounds;
     const spentMs = timing?.activeMs ?? snapshot?.elapsedActiveMs ?? 0;
     // Everything visual is derived from the same numbers the sentence uses, so the
     // picture can never claim more than the words.
@@ -370,20 +377,29 @@ export function applyClient(ctx: Context): void {
           </button>
         </div>
         <div className="dte-hero">
-          <Ring share={ringShare} tone={progress.state} />
+          <Ring share={heroIsGoal ? goalSpentShare : ringShare} tone={progress.state} />
           <div className="dte-hero-figures">
-            <div className="dte-hero-caption">{statusText}</div>
-            <div className={showsNumber ? 'dte-hero-value dte-tabular' : 'dte-hero-value dte-hero-value-plain'}>{showsNumber ? eta : elapsed}</div>
+            <div className="dte-hero-caption">{heroIsGoal ? t('heroGoalLeft') : statusText}</div>
+            <div className={heroIsGoal ? 'dte-hero-value dte-tabular' : showsNumber ? 'dte-hero-value dte-tabular' : 'dte-hero-value dte-hero-value-plain'}>
+              {heroIsGoal ? (goalRange ? formatEta(goalRange, t) : t('goalEstimating')) : showsNumber ? eta : elapsed}
+            </div>
           </div>
         </div>
-        {barTotal !== null && spentShare !== null && lowShare !== null && <div className="dte-track" role="img" aria-label={t('trackLabel', { spent: elapsed, total: range })} title={t('tipStatus')}>
+        {heroIsGoal && goalSpentShare !== null && goalLowShare !== null && <div className="dte-track" role="img" aria-label={t('trackLabel', { spent: formatDuration(goalSpent, t), total: goalRange ? formatEta(goalRange, t) : '' })} title={t('tipStatus')}>
+          <span className="dte-track-spent" style={{ width: `${goalSpentShare}%` }} />
+          <span className="dte-track-band" style={{ left: `${goalSpentShare}%`, width: `${Math.max(0, goalLowShare - goalSpentShare)}%` }} />
+          <span className="dte-track-now" style={{ left: `${goalSpentShare}%` }} />
+        </div>}
+        {!heroIsGoal && barTotal !== null && spentShare !== null && lowShare !== null && <div className="dte-track" role="img" aria-label={t('trackLabel', { spent: elapsed, total: range })} title={t('tipStatus')}>
           <span className="dte-track-spent" style={{ width: `${spentShare}%` }} />
           <span className="dte-track-band" style={{ left: `${spentShare}%`, width: `${Math.max(0, lowShare - spentShare)}%` }} />
           <span className="dte-track-now" style={{ left: `${spentShare}%` }} />
         </div>}
-        {(finishClock || reasonLine) && progress.state !== 'done' && <div className="dte-finish-row">
-          {finishClock && <span className="dte-finish">{t('finishAt', { time: finishClock })}</span>}
-          {reasonLine && <span className="dte-finish dte-muted">{reasonLine}</span>}
+        {(finishClock || reasonLine || heroIsGoal) && progress.state !== 'done' && <div className="dte-finish-row">
+          {heroIsGoal && goalRange && (() => { const clock = clockRange(goalRange, now, localeSnapshot.active, t); return clock ? <span className="dte-finish">{t('finishAt', { time: clock })}</span> : null; })()}
+          {heroIsGoal && validSpan(displayedRemaining) && <span className="dte-finish dte-muted">{t('roundLine', { value: formatEta(displayedRemaining, t) })}</span>}
+          {!heroIsGoal && finishClock && <span className="dte-finish">{t('finishAt', { time: finishClock })}</span>}
+          {reasonLine && !heroIsGoal && <span className="dte-finish dte-muted">{reasonLine}</span>}
         </div>}
         {progress.state === 'done' && doneClock && <div className="dte-finish-row"><span className="dte-finish">{t('finishedAt', { time: doneClock })}</span></div>}
         {snapshot?.goalRounds && <div className="dte-goal">
@@ -392,9 +408,7 @@ export function applyClient(ctx: Context): void {
             <RoundStrip started={rounds?.started ?? 0} max={rounds?.max ?? 0} />
             <span className="dte-goal-spent dte-tabular">{formatDuration(snapshot.goalSpentMs ?? 0, t)}</span>
           </div>
-          <p className="dte-goal-line">{goalForecast
-            ? t('goalForecastLine', { range: formatEta({ low: goalForecast.lowMs, high: goalForecast.highMs }, t) })
-            : t('goalNoForecast')}</p>
+          {!goalForecast && <p className="dte-goal-line dte-muted">{t('goalNoForecast')}</p>}
         </div>}
         {snapshot && (() => {
           const buckets = snapshot.activity ?? [];

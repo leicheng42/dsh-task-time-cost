@@ -203,6 +203,8 @@ export async function apply(ctx: Context, rawConfig: unknown): Promise<void> {
   const estimatorTimers = new Set<ReturnType<typeof setTimeout>>();
   const refreshTimers = new Map<string, ReturnType<typeof setTimeout>>();
   /** Goal objective text, kept in memory only: it is never written to storage. */
+  /** DSH owns the goal; asking it beats caching the objective ourselves. */
+  interface GoalServiceLike { get(agent: unknown): { objective?: string; phase?: string; roundsStarted?: number; maxGoalRounds?: number } | undefined }
   const goalTexts = new Map<string, string>();
   const goalForecastInFlight = new Set<string>();
   function readUserText(data: unknown): string | null {
@@ -261,11 +263,21 @@ export async function apply(ctx: Context, rawConfig: unknown): Promise<void> {
     const state = projection.stateOf(session);
     const goal = state.goal;
     if (!goal || goal.phase !== 'active') return;
-    const text = goalTexts.get(goal.id);
+    let live: { objective?: string; phase?: string; roundsStarted?: number; maxGoalRounds?: number } | undefined;
+    try {
+      const agent = ctx.agents.get(session.id);
+      const service = ctx.get('goals') as GoalServiceLike | undefined;
+      if (agent && service && typeof service.get === 'function') live = service.get(agent);
+    } catch { live = undefined; }
+    if (live && live.phase && live.phase !== 'active') return;
+    const objective = live?.objective ?? goalTexts.get(goal.id);
+    const text = objective?.trim();
+    if (!text) return;
     if (!text || goalForecastInFlight.has(goal.id)) return;
     const rounds = Object.values(state.tasks).filter(task => task.goalId === goal.id);
     const finished = rounds.filter(task => task.endedAt !== null);
-    if (finished.length === 0) return;
+    const startedRounds = Math.max(finished.length, typeof live?.roundsStarted === 'number' ? live.roundsStarted : 0);
+    if (startedRounds === 0) return;
     const now = Date.now();
     const elapsedMs = rounds.reduce((sum, task) => sum + Math.max(0, (task.endedAt ?? now) - task.startedAt), 0);
     const toolsDone = rounds.reduce((sum, task) => sum + Object.keys(task.tools).length, 0);
@@ -273,7 +285,7 @@ export async function apply(ctx: Context, rawConfig: unknown): Promise<void> {
     try {
       const plan = await requestGoalPlan(ctx, config.estimatorModel,
         { providerId: finished[finished.length - 1]?.route?.providerId ?? null, modelId: finished[finished.length - 1]?.route?.modelId ?? null },
-        text, { elapsedMs, roundsDone: finished.length, toolsDone, previous: engine.goalForecastOf(goal.id) });
+        text, { elapsedMs, roundsDone: startedRounds, toolsDone, previous: engine.goalForecastOf(goal.id) });
       if (plan) engine.setGoalForecast(goal.id, plan.lowMs, plan.highMs);
     } catch { /* a failed goal estimate leaves the previous one in place */ }
     finally { goalForecastInFlight.delete(goal.id); }
@@ -346,7 +358,9 @@ export async function apply(ctx: Context, rawConfig: unknown): Promise<void> {
     if (config.estimatorModel.enabled) observeEstimatorInput(session, event);
     observeGoalObjective(event);
     // A finished round is the natural moment to re-ask how much of the goal is left.
-    if (config.estimatorModel.enabled && event.type === 'turn/end') setTimeout(() => { void attemptGoalForecast(session); }, 2_000);
+    if (config.estimatorModel.enabled && (event.type === 'turn/end' || event.type === 'turn/start')) {
+      setTimeout(() => { void attemptGoalForecast(session); }, event.type === 'turn/end' ? 2_000 : 20_000);
+    }
     if (config.estimatorModel.enabled && !refreshTimers.has(`${session.id}:${projection.stateOf(session).currentTurn ?? ''}`)) observeRunningTurn(session);
     const agent = ctx.agents.get(session.id);
     safe(agent, () => {
