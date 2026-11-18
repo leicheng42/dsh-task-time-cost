@@ -54,3 +54,20 @@ test('ignored events preserve projection identity', () => {
   const state = active();
   assert.equal(foldFacts(state, event('command/run', 1, 3_000, {}), classify), state);
 });
+
+test('goal rounds advance with every goal round, not only when the goal is created', () => {
+  let state = foldFacts(initialFacts(header, 0), event('goal/change', 0, 1_000, {
+    operation: 'create', roundsStarted: 0,
+    goal: { id: 'g1', objective: '修好登录和订单页面', phase: 'active', maxGoalRounds: 100, revision: 1 },
+  }), classify);
+  state = foldFacts(state, event('turn/start', 1, 1_100, { turn: 1 }), classify);
+  assert.equal(state.tasks['1'].goalRounds?.started, 1);
+  state = foldFacts(state, event('turn/end', 2, 2_000, { turn: 1, reason: { kind: 'completed' } }), classify);
+  state = foldFacts(state, event('user/message', 3, 3_000, { role: 'user', source: { kind: 'goal', goalId: 'g1', round: 2 }, content: [{ type: 'text', text: '继续' }] }), classify);
+  state = foldFacts(state, event('turn/start', 4, 3_100, { turn: 2 }), classify);
+  assert.equal(state.tasks['2'].goalRounds?.started, 2, 'the second round must not be reported as round 1');
+  state = foldFacts(state, event('turn/end', 5, 4_000, { turn: 2, reason: { kind: 'completed' } }), classify);
+  state = foldFacts(state, event('user/message', 6, 5_000, { role: 'user', source: { kind: 'goal', goalId: 'g1', round: 7 }, content: [{ type: 'text', text: '继续' }] }), classify);
+  state = foldFacts(state, event('turn/start', 7, 5_100, { turn: 3 }), classify);
+  assert.equal(state.tasks['3'].goalRounds?.started, 7, 'the counter follows the round the host reports');
+});

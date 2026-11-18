@@ -145,6 +145,11 @@ export function foldFacts(state: FactsState, event: SessionEvent, classify: Clas
       explicitOutputWords: count ? Number(count[1]) : null, userMessages: 1 };
   }
   if (event.type === 'user/message' && event.data.source.kind === 'goal' && next.goal?.phase === 'active' && event.data.source.goalId === next.goal.id) {
+    // DSH increments roundsStarted as each goal round starts; mirror it here or the
+    // counter freezes at the value it had when the goal was created.
+    if (typeof event.data.source.round === 'number' && event.data.source.round > 0) {
+      next.goal = { ...next.goal, rounds: event.data.source.round };
+    }
     incoming = { ...next.goal.features, userMessages: 0 };
   }
   if (event.type === 'turn/start') {
@@ -153,7 +158,7 @@ export function foldFacts(state: FactsState, event: SessionEvent, classify: Clas
     const goalHasPriorWork = next.goal?.phase === 'active' && Object.values(next.tasks).some(past => past.goalId === next.goal!.id
       && past.calls.some(call => call.seq > (next.goal!.scopeSeq ?? 0)));
     next.currentTurn = turn;
-    next.tasks[String(turn)] = { turn, startSeq: event.seq, startedAt: event.time, endedAt: null, lastAt: event.time, state: 'running', taskType: 'unknown', promptChars: 0, attachmentCount: 0, explicitOutputWords: null, userMessages: 0, scopeChanged: false, step: 0, stepStartedAt: event.time, route: next.route, calls: [], tools: {}, ...(next.goal?.phase === 'active' ? { goalId: next.goal.id, goalHasPriorWork, ...(next.goal.maxRounds ? { goalRounds: { started: (next.goal.rounds ?? 0) + 1, max: next.goal.maxRounds } } : {}) } : {}), ...(next.pendingPrompt ?? {}) };
+    next.tasks[String(turn)] = { turn, startSeq: event.seq, startedAt: event.time, endedAt: null, lastAt: event.time, state: 'running', taskType: 'unknown', promptChars: 0, attachmentCount: 0, explicitOutputWords: null, userMessages: 0, scopeChanged: false, step: 0, stepStartedAt: event.time, route: next.route, calls: [], tools: {}, ...(next.goal?.phase === 'active' ? { goalId: next.goal.id, goalHasPriorWork, ...(next.goal.maxRounds ? { goalRounds: { started: Math.min(next.goal.maxRounds, Math.max(1, next.goal.rounds ?? 1)), max: next.goal.maxRounds } } : {}) } : {}), ...(next.pendingPrompt ?? {}) };
     next.pendingPrompt = null;
     // Bound the per-session checkpoint. Older completed snapshots remain in plugin storage.
     const old = Object.keys(next.tasks).sort((a, b) => Number(a) - Number(b));

@@ -219,7 +219,7 @@ export function applyClient(ctx: Context): void {
     const initialScope = snapshot?.reasons.includes('scope-engineering-prior') ?? false;
     const line = tail || terminal ? t('doneElapsed', { elapsed })
       : assessing ? t('assessing')
-      : (active && sessionRemaining !== null || retained) ? t(retained ? 'etaRetained' : initialScope ? 'etaInitial' : snapshot?.forecastScope === 'whole_goal' ? 'etaGoal' : 'etaEstimate', { value: eta })
+      : (active && sessionRemaining !== null || retained) ? t(retained ? 'etaRetained' : initialScope ? 'etaInitial' : 'etaEstimate', { value: eta })
       : active && snapshot ? t('lineElapsed', { elapsed }) : t('titleShort');
     const progress = progressState({ ended: terminal, elapsedMs: snapshot?.elapsedActiveMs ?? 0,
       remainingHighMs: validSpan(displayedRemaining) ? displayedRemaining.high : null,

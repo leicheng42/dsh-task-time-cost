@@ -1,13 +1,13 @@
 export const styles = `
-.dte{display:inline-flex;flex:0 1 auto;max-width:100%;color:var(--dsw-alias-label-secondary);font:inherit;line-height:inherit;min-width:0;box-sizing:border-box}
+.dte{--dte-accent:#3b82f6;display:inline-flex;flex:0 1 auto;max-width:100%;color:var(--dsw-alias-label-secondary);font:inherit;line-height:inherit;min-width:0;box-sizing:border-box}
 .dte *{box-sizing:border-box}
 .dte button,.dte input,.dte textarea,.dte select{font:inherit;color:inherit}
 .dte button,.dte summary{cursor:pointer}
 .dte button{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);border-radius:6px;min-height:32px;padding:4px 10px;transition:background-color .15s,border-color .15s}
 .dte button:hover:not(:disabled),.dte summary:hover{background:var(--dsw-alias-bg-layer-2)}
 .dte button:disabled{cursor:default;opacity:.6}
-.dte button:focus-visible,.dte summary:focus-visible,.dte input:focus-visible,.dte textarea:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}
-.dte button.dte-primary{color:var(--dsw-alias-brand-primary);border-color:var(--dsw-alias-brand-primary)}
+.dte button:focus-visible,.dte summary:focus-visible,.dte input:focus-visible,.dte textarea:focus-visible{outline:2px solid var(--dte-accent, #3b82f6);outline-offset:2px}
+.dte button.dte-primary{color:var(--dte-accent, #3b82f6);border-color:var(--dte-accent, #3b82f6)}
 .dte button.dte-danger{color:var(--dsw-alias-state-error-primary)}
 .dte .dte-quiet{border-color:transparent;background:transparent}
 .dte .dte-muted{color:var(--dsw-alias-label-secondary)}
@@ -25,7 +25,7 @@ export const styles = `
 .dte .dte-main .dte-value{font-weight:500}
 .dte .dte-state{display:inline-flex;align-items:center;gap:5px;color:var(--dsw-alias-label-secondary);white-space:nowrap}
 .dte .dte-state::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--dsw-alias-state-idle-primary);flex:none}
-.dte .dte-state[data-state=running]::before{background:var(--dsw-alias-brand-primary)}
+.dte .dte-state[data-state=running]::before{background:var(--dte-accent, #3b82f6)}
 .dte .dte-state[data-state=completed]::before{background:var(--dsw-alias-state-success-primary)}
 .dte .dte-state[data-state=failed]::before{background:var(--dsw-alias-state-error-primary)}
 .dte .dte-panel{margin:4px 0 8px;border:1px solid var(--dsw-alias-border-l1);border-radius:7px;background:var(--dsw-alias-bg-base);max-height:min(60vh,38rem);overflow:auto;overscroll-behavior:contain;padding:12px;scrollbar-gutter:stable}
@@ -58,7 +58,7 @@ export const styles = `
 .dte th,.dte td{padding:6px 8px;border-bottom:1px solid var(--dsw-alias-border-l1);vertical-align:top;overflow-wrap:anywhere}
 .dte th{font-weight:500;color:var(--dsw-alias-label-secondary);text-align:start}
 .dte .dte-status{min-height:1.5em;margin:6px 0}
-.dte a{color:var(--dsw-alias-brand-primary);overflow-wrap:anywhere}
+.dte a{color:var(--dte-accent, #3b82f6);overflow-wrap:anywhere}
 /* Native StatsPills / TurnUsagePanel geometry (MIT), without private imports.
    Both roots shrink-wrap; neither claims the composer's available width. */
 .dte[data-slot=composer-dock]{font-size:calc(var(--dsh-content-font-size-secondary,13px) - 1px);line-height:calc(20px + var(--dsh-content-font-delta-secondary,0px))}
@@ -90,10 +90,10 @@ export const styles = `
    A real timeline puts "now" at a position instead of between two numbers. */
 .dte .dte-timeline{margin:12px 0 0}
 .dte .dte-timeline-track{position:relative;height:8px;border-radius:999px;background:var(--dsw-alias-bg-layer-2)}
-.dte .dte-timeline-done{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:color-mix(in srgb,var(--dsw-alias-brand-primary) 80%,transparent)}
-.dte .dte-timeline-band{position:absolute;top:0;bottom:0;border-radius:999px;background:color-mix(in srgb,var(--dsw-alias-brand-primary) 26%,transparent)}
+.dte .dte-timeline-done{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:color-mix(in srgb,var(--dte-accent, #3b82f6) 80%,transparent)}
+.dte .dte-timeline-band{position:absolute;top:0;bottom:0;border-radius:999px;background:color-mix(in srgb,var(--dte-accent, #3b82f6) 26%,transparent)}
 .dte .dte-timeline-now{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--dsw-alias-label-primary);transform:translateX(-1px)}
-.dte .dte-timeline-dot{position:absolute;top:50%;width:10px;height:10px;border-radius:50%;background:var(--dsw-alias-bg-base);border:2px solid var(--dsw-alias-brand-primary);transform:translate(-50%,-50%)}
+.dte .dte-timeline-dot{position:absolute;top:50%;width:10px;height:10px;border-radius:50%;background:var(--dsw-alias-bg-base);border:2px solid var(--dte-accent, #3b82f6);transform:translate(-50%,-50%)}
 .dte .dte-timeline-labels{display:flex;justify-content:space-between;gap:12px;margin-top:6px;color:var(--dsw-alias-label-tertiary);font-size:11px;font-variant-numeric:tabular-nums}
 .dte .dte-status-line{margin:8px 0 0;color:var(--dsw-alias-label-tertiary);font-size:11px;line-height:1.5}
 .dte .dte-finish{margin:4px 0 0;color:var(--dsw-alias-label-secondary);font-size:12px;line-height:1.5;font-variant-numeric:tabular-nums}
@@ -108,13 +108,13 @@ export const styles = `
 .dte .dte-trail{display:flex;align-items:center;gap:8px;margin:10px 0 0}
 .dte .dte-trail-caption{color:var(--dsw-alias-label-tertiary);font-size:10px;white-space:nowrap}
 .dte .dte-trail-bars{display:flex;align-items:flex-end;gap:2px;height:18px;flex:1;min-width:0}
-.dte .dte-trail-bars i{flex:1;min-width:3px;max-width:10px;border-radius:2px 2px 0 0;background:color-mix(in srgb,var(--dsw-alias-brand-primary) 45%,transparent)}
+.dte .dte-trail-bars i{flex:1;min-width:3px;max-width:10px;border-radius:2px 2px 0 0;background:color-mix(in srgb,var(--dte-accent, #3b82f6) 45%,transparent)}
 .dte .dte-status{margin:10px 0 0;color:var(--dsw-alias-label-primary);font-size:16px;line-height:1.4;font-weight:500}
 .dte .dte-status-plain{font-size:14px;font-weight:500}
 .dte .dte-tip-subject{cursor:help}
 /* display:contents paints nothing, so the ring goes on the child the keyboard user reached. */
-.dte .dte-tip-subject:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:3px;border-radius:6px}
-.dte button:focus-visible, .dte a:focus-visible, .dte [tabindex]:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px;border-radius:6px}
+.dte .dte-tip-subject:focus-visible{outline:2px solid var(--dte-accent, #3b82f6);outline-offset:3px;border-radius:6px}
+.dte button:focus-visible, .dte a:focus-visible, .dte [tabindex]:focus-visible{outline:2px solid var(--dte-accent, #3b82f6);outline-offset:2px;border-radius:6px}
 .dte-tip-card{transition:opacity .12s ease}
 .dte-tip-card{position:fixed;box-sizing:border-box;z-index:2000000000;max-width:260px;padding:8px 10px;border-radius:8px;background:var(--dsw-alias-bg-layer-2,var(--dsw-alias-bg-base));color:var(--dsw-alias-label-secondary);font-size:11px;line-height:1.5;box-shadow:0 8px 24px rgba(0,0,0,.18);pointer-events:none}
 .dte .dte-goal{margin:12px 0 0;padding-top:10px;border-top:1px solid var(--dsw-alias-border-l1)}
@@ -122,7 +122,7 @@ export const styles = `
 .dte .dte-activity{display:flex;align-items:center;gap:10px;margin:12px 0 0}
 .dte .dte-activity-counts{color:var(--dsw-alias-label-tertiary);font-size:11px;white-space:nowrap}
 .dte .dte-activity-band{display:flex;align-items:flex-end;gap:2px;height:16px;flex:1;min-width:0}
-.dte .dte-activity-band i{flex:1;min-width:3px;border-radius:2px;background:color-mix(in srgb,var(--dsw-alias-brand-primary) 55%,transparent)}
+.dte .dte-activity-band i{flex:1;min-width:3px;border-radius:2px;background:color-mix(in srgb,var(--dte-accent, #3b82f6) 55%,transparent)}
 .dte .dte-activity-quiet{color:var(--dsw-alias-label-tertiary);font-size:11px;flex:1}
 .dte .dte-facts{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin:14px 0 0;color:var(--dsw-alias-label-secondary);font-size:12px}
 .dte .dte-facts b{color:var(--dsw-alias-label-primary);font-weight:600;margin-left:3px}
@@ -131,7 +131,7 @@ export const styles = `
 .dte .dte-metric-label{color:var(--dsw-alias-label-secondary);font-size:12px;font-weight:500}
 .dte .dte-metric-share{color:var(--dsw-alias-label-tertiary);font-size:11px}
 .dte .dte-bar{position:relative;height:6px;margin:5px 0 6px;border-radius:999px;background:var(--dsw-alias-bg-layer-2);overflow:hidden}
-.dte .dte-bar-fill{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:color-mix(in srgb,var(--dsw-alias-brand-primary) 72%,transparent)}
+.dte .dte-bar-fill{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:color-mix(in srgb,var(--dte-accent, #3b82f6) 72%,transparent)}
 .dte .dte-bar-unknown{background-image:repeating-linear-gradient(90deg,var(--dsw-alias-border-l1) 0 4px,transparent 4px 8px)}
 .dte .dte-metric-values{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0}
 .dte .dte-metric-values>div{min-width:0}
@@ -146,15 +146,15 @@ export const styles = `
 .dte .dte-hero{display:flex;align-items:center;gap:14px;margin:16px 0 0}
 .dte .dte-ring{flex:0 0 64px;width:64px;height:64px}
 .dte .dte-ring-track{fill:none;stroke:var(--dsw-alias-bg-layer-2);stroke-width:6}
-.dte .dte-ring-fill{fill:none;stroke:var(--dsw-alias-brand-primary);stroke-width:6;stroke-linecap:round;transition:stroke-dasharray .4s ease}
+.dte .dte-ring-fill{fill:none;stroke:var(--dte-accent, #3b82f6);stroke-width:6;stroke-linecap:round;transition:stroke-dasharray .4s ease}
 .dte .dte-ring-done .dte-ring-fill{stroke:var(--dsw-alias-label-tertiary)}
 .dte .dte-hero-figures{min-width:0;flex:1 1 auto}
 .dte .dte-hero-value{font-size:26px;line-height:1.15;font-weight:600;color:var(--dsw-alias-label-primary);letter-spacing:-.01em;font-variant-numeric:tabular-nums}
 .dte .dte-hero-value-plain{font-size:22px}
 .dte .dte-hero-caption{font-size:12px;line-height:1.35;color:var(--dsw-alias-label-tertiary);white-space:normal}
 .dte .dte-track{position:relative;height:8px;margin:16px 0 0;border-radius:999px;background:var(--dsw-alias-bg-layer-2);overflow:hidden}
-.dte .dte-track-spent{position:absolute;left:0;top:0;bottom:0;background:color-mix(in srgb,var(--dsw-alias-brand-primary) 34%,transparent)}
-.dte .dte-track-band{position:absolute;top:0;bottom:0;background:color-mix(in srgb,var(--dsw-alias-brand-primary) 70%,transparent);border-radius:0 999px 999px 0}
+.dte .dte-track-spent{position:absolute;left:0;top:0;bottom:0;background:color-mix(in srgb,var(--dte-accent, #3b82f6) 34%,transparent)}
+.dte .dte-track-band{position:absolute;top:0;bottom:0;background:color-mix(in srgb,var(--dte-accent, #3b82f6) 70%,transparent);border-radius:0 999px 999px 0}
 .dte .dte-track-now{position:absolute;top:-2px;bottom:-2px;width:2px;margin-left:-1px;border-radius:2px;background:var(--dsw-alias-label-primary)}
 .dte .dte-finish-row{display:flex;flex-wrap:wrap;gap:4px 10px;margin:8px 0 0}
 .dte .dte-finish-row .dte-finish{margin:0}
@@ -162,7 +162,7 @@ export const styles = `
 .dte .dte-goal-count{font-size:12px;color:var(--dsw-alias-label-secondary);white-space:nowrap}
 .dte .dte-rounds{display:flex;gap:3px;flex:1 1 auto;min-width:0}
 .dte .dte-rounds i{flex:1 1 0;min-width:2px;max-width:14px;height:6px;border-radius:2px}
-.dte .dte-round-on{background:var(--dsw-alias-brand-primary)}
+.dte .dte-round-on{background:var(--dte-accent, #3b82f6)}
 .dte .dte-round-off{background:var(--dsw-alias-bg-layer-2)}
 .dte .dte-goal-spent{font-size:12px;color:var(--dsw-alias-label-tertiary);white-space:nowrap;font-variant-numeric:tabular-nums}
 .dte .dte-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:16px 0 0;flex-wrap:nowrap}
@@ -170,6 +170,6 @@ export const styles = `
 .dte .dte-chip{padding:1px 7px;border:1px solid var(--dsw-alias-border-l1);border-radius:999px;font-size:10.5px;line-height:15px;color:var(--dsw-alias-label-secondary);white-space:nowrap;font-variant-numeric:tabular-nums}
 .dte .dte-activity{display:flex;align-items:flex-end;gap:2px;height:16px;width:64px;margin:0}
 .dte .dte-activity-band{display:flex;align-items:flex-end;gap:2px;height:16px;flex:1 1 auto;min-width:0}
-.dte .dte-activity-band i{flex:1;min-width:3px;border-radius:2px;background:color-mix(in srgb,var(--dsw-alias-brand-primary) 55%,transparent)}
+.dte .dte-activity-band i{flex:1;min-width:3px;border-radius:2px;background:color-mix(in srgb,var(--dte-accent, #3b82f6) 55%,transparent)}
 .dte .dte-activity-quiet{color:var(--dsw-alias-label-tertiary);font-size:11px;line-height:16px;white-space:nowrap}
 `;
