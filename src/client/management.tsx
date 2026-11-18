@@ -7,10 +7,10 @@ import type { MessageKey, Translate } from './locale.ts';
 import type { SnapshotStore } from './store.ts';
 
 const pendingLabels: Record<ManagementAction, MessageKey> = {
-  read: 'pendingRead', saveConfig: 'pendingSave', importBaselines: 'pendingImport', estimatorModel: 'pendingSave', export: 'pendingExport', resetCalibration: 'pendingReset',
+  read: 'pendingRead', saveConfig: 'pendingSave', importBaselines: 'pendingImport', estimatorModel: 'pendingSave', export: 'pendingExport', resetCalibration: 'pendingReset', goalForecast: 'pendingSave',
 };
 const successLabels: Record<ManagementAction, MessageKey> = {
-  read: 'reloaded', saveConfig: 'saved', importBaselines: 'imported', estimatorModel: 'saved', export: 'exported', resetCalibration: 'resetDone',
+  read: 'reloaded', saveConfig: 'saved', importBaselines: 'imported', estimatorModel: 'saved', export: 'exported', resetCalibration: 'resetDone', goalForecast: 'saved',
 };
 
 interface Props { remote: EstimatorRemote; store: SnapshotStore; t: Translate; locale: string }

@@ -53,6 +53,7 @@ export class EstimatorEngine {
   private readonly refreshAttempts = new Map<string, number>();
   /** Latest model answer for a whole goal, keyed by goal id. */
   private readonly goalForecasts = new Map<string, { lowMs: number; highMs: number; at: number }>();
+  private readonly goalForecastStates = new Map<string, { state: string; at: number }>();
   private calibrationCache: { samples: number; medianRatio: number | null; underestimated: number; at: number } | null = null;
   /** Recent remaining bounds for the panel trail; memory only. */
   private readonly forecastTrail = new Map<string, Array<{ at: number; highMs: number }>>();
@@ -233,6 +234,10 @@ export class EstimatorEngine {
   setGoalForecast(goalId: string, lowMs: number, highMs: number): void {
     if (!goalId || !Number.isFinite(lowMs) || !Number.isFinite(highMs) || lowMs <= 0 || highMs < lowMs) return;
     this.goalForecasts.set(goalId, { lowMs, highMs, at: Date.now() });
+  }
+
+  setGoalForecastState(goalId: string, state: 'ok' | 'no-objective' | 'no-model' | 'failed'): void {
+    this.goalForecastStates.set(goalId, { state, at: Date.now() });
   }
 
   goalForecastOf(goalId: string): { lowMs: number; highMs: number } | null {
@@ -459,6 +464,7 @@ export class EstimatorEngine {
     // The goal answer is whatever the model last said about the whole objective.
     // It is deliberately not derived from the round budget: a cap is not a plan.
     const goalForecast = task.goalId ? this.goalForecasts.get(task.goalId) ?? null : null;
+    const goalForecastState = task.goalId ? this.goalForecastStates.get(task.goalId) ?? null : null;
     // Progress, not a forecast: how much active time this goal has already consumed.
     const goalSpentMs = task.goalId ? [...this.repository.tasks.values()]
       .filter(record => record.current.goalId === task.goalId && record.current.endedAt !== null)
@@ -589,6 +595,7 @@ export class EstimatorEngine {
       ...(task.goalRounds ? { goalRounds: task.goalRounds } : {}),
       ...(task.goalId ? { goalId: task.goalId } : {}),
       ...(goalForecast ? { goalForecast: { ...goalForecast } } : {}),
+      ...(goalForecastState ? { goalForecastState: { ...goalForecastState } } : {}),
       ...(goalSpentMs !== null ? { goalSpentMs } : {}),
       initial, error: errors, reasons: [...new Set([...reasons, ...observed.reasons])], scope: 'current_turn',
     });

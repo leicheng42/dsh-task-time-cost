@@ -1,3 +1,4 @@
+let goalForecastRunner: ((sessionId: string) => Promise<string>) | null = null;
 import type { Context } from '@deepseek-ai/cordis';
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
 import type { Session, SessionId } from '@deepseek-ai/dsh-session';
@@ -127,6 +128,15 @@ export class TaskEstimatorService extends TypertRemoteService {
         await persistConfig(editor, this.ctx.fiber.entry as ConfigEntryLike | undefined, config as unknown as Record<string, unknown>,
           value => validatePluginConfig(value) as unknown as Record<string, unknown>);
         return { ok: true, message: patch.enabled ? 'Model estimate on. It follows this session route.' : 'Model estimate off. The template forecast stays.' };
+      }
+      if (action === 'goalForecast') {
+        if (!goalForecastRunner) return { ok: false, message: 'The estimator is still starting.' };
+        const outcome = await goalForecastRunner(payload.trim());
+        const message = outcome === 'ok' ? 'Goal estimate updated.'
+          : outcome === 'no-objective' ? 'The goal text is not available yet.'
+          : outcome === 'no-model' ? 'The model did not answer; check the session route.'
+          : outcome === 'busy' ? 'An estimate is already running.' : 'Goal estimate failed.';
+        return { ok: outcome === 'ok', message };
       }
       if (action === 'resetCalibration') {
         await repository.resetCalibration();
@@ -259,25 +269,27 @@ export async function apply(ctx: Context, rawConfig: unknown): Promise<void> {
     if (typeof id === 'string' && typeof objective === 'string' && objective.trim()) goalTexts.set(id, objective.trim());
   }
 
-  async function attemptGoalForecast(session: Session): Promise<void> {
+  async function attemptGoalForecast(session: Session, force = false): Promise<'ok' | 'no-objective' | 'no-model' | 'failed' | 'busy'> {
     const state = projection.stateOf(session);
     const goal = state.goal;
-    if (!goal || goal.phase !== 'active') return;
+    if (!goal || goal.phase !== 'active') return 'no-objective';
     let live: { objective?: string; phase?: string; roundsStarted?: number; maxGoalRounds?: number } | undefined;
     try {
       const agent = ctx.agents.get(session.id);
-      const service = ctx.get('goals') as GoalServiceLike | undefined;
+      const candidate = [ctx, (ctx as unknown as { root?: unknown }).root, agent?.ctx]
+        .find(scope => scope && typeof (scope as { get?: unknown }).get === 'function');
+      const service = (candidate as { get: (name: string) => unknown } | undefined)?.get('goals') as GoalServiceLike | undefined;
       if (agent && service && typeof service.get === 'function') live = service.get(agent);
     } catch { live = undefined; }
-    if (live && live.phase && live.phase !== 'active') return;
+    if (live && live.phase && live.phase !== 'active') return 'no-objective';
     const objective = live?.objective ?? goalTexts.get(goal.id);
     const text = objective?.trim();
-    if (!text) return;
-    if (!text || goalForecastInFlight.has(goal.id)) return;
+    if (!text) { engine.setGoalForecastState(goal.id, 'no-objective'); return 'no-objective'; }
+    if (goalForecastInFlight.has(goal.id) && !force) return 'busy';
     const rounds = Object.values(state.tasks).filter(task => task.goalId === goal.id);
     const finished = rounds.filter(task => task.endedAt !== null);
     const startedRounds = Math.max(finished.length, typeof live?.roundsStarted === 'number' ? live.roundsStarted : 0);
-    if (startedRounds === 0) return;
+    if (startedRounds === 0) return 'no-objective';
     const now = Date.now();
     const elapsedMs = rounds.reduce((sum, task) => sum + Math.max(0, (task.endedAt ?? now) - task.startedAt), 0);
     const toolsDone = rounds.reduce((sum, task) => sum + Object.keys(task.tools).length, 0);
@@ -286,8 +298,11 @@ export async function apply(ctx: Context, rawConfig: unknown): Promise<void> {
       const plan = await requestGoalPlan(ctx, config.estimatorModel,
         { providerId: finished[finished.length - 1]?.route?.providerId ?? null, modelId: finished[finished.length - 1]?.route?.modelId ?? null },
         text, { elapsedMs, roundsDone: startedRounds, toolsDone, previous: engine.goalForecastOf(goal.id) });
-      if (plan) engine.setGoalForecast(goal.id, plan.lowMs, plan.highMs);
-    } catch { /* a failed goal estimate leaves the previous one in place */ }
+      if (!plan) { engine.setGoalForecastState(goal.id, 'no-model'); return 'no-model'; }
+      engine.setGoalForecast(goal.id, plan.lowMs, plan.highMs);
+      engine.setGoalForecastState(goal.id, 'ok');
+      return 'ok';
+    } catch { engine.setGoalForecastState(goal.id, 'failed'); return 'failed'; }
     finally { goalForecastInFlight.delete(goal.id); }
   }
 
@@ -353,6 +368,11 @@ export async function apply(ctx: Context, rawConfig: unknown): Promise<void> {
     estimatorTimers.add(timer);
     startRefreshLoop(session, turn);
   }
+  goalForecastRunner = async (sessionId: string) => {
+    const agent = sessionId ? ctx.agents.get(sessionId as Parameters<typeof ctx.agents.get>[0]) : undefined;
+    if (!agent) return 'no-objective';
+    return attemptGoalForecast(agent.session, true);
+  };
   ctx.effect(() => () => { for (const timer of estimatorTimers) clearTimeout(timer); estimatorTimers.clear(); for (const timer of refreshTimers.values()) clearTimeout(timer); refreshTimers.clear(); taskTexts.clear(); estimatorRequested.clear(); goalTexts.clear(); goalForecastInFlight.clear(); });
   ctx.on('session/event', (session, event) => {
     if (config.estimatorModel.enabled) observeEstimatorInput(session, event);
@@ -418,13 +438,22 @@ export async function apply(ctx: Context, rawConfig: unknown): Promise<void> {
       return [{ type: 'text', text }];
     } },
     async execute(args, exec) {
-      const input = z.object({ action: z.enum(['snapshot', 'read', 'saveConfig', 'estimatorModel', 'export', 'resetCalibration', 'importBaselines']), turn: z.number().int().nonnegative().optional(), payload: z.string().max(2_000_000).optional() }).strict().parse(args);
+      const input = z.object({ action: z.enum(['snapshot', 'read', 'saveConfig', 'estimatorModel', 'export', 'resetCalibration', 'importBaselines', 'goalForecast']), turn: z.number().int().nonnegative().optional(), payload: z.string().max(2_000_000).optional() }).strict().parse(args);
       if (input.action === 'snapshot') {
         if (!exec.agent) return { available: false, snapshot: null, error: 'A session is required.' };
         const started = performance.now();
         const view = await service.snapshot(exec.agent.id, input.turn ?? null, exec.signal);
         metrics.record('snapshot', performance.now() - started);
         return { ...view, observerOverhead: metrics.snapshot() };
+      }
+      if (input.action === 'goalForecast') {
+        if (!exec.agent) return { ok: false, message: 'A session is required.' };
+        const outcome = await attemptGoalForecast(exec.agent.session, true);
+        const message = outcome === 'ok' ? 'Goal estimate updated.'
+          : outcome === 'no-objective' ? 'The goal text is not available yet.'
+          : outcome === 'no-model' ? 'The model did not answer; check the session route.'
+          : outcome === 'busy' ? 'An estimate is already running.' : 'Goal estimate failed.';
+        return { ok: outcome === 'ok', message };
       }
       return await service.manage(input.action, input.payload ?? '', exec.signal);
     },

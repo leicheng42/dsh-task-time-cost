@@ -64,6 +64,8 @@ export interface EstimateSnapshot {
   calibration?: { samples: number; medianRatio: number | null; underestimated: number };
   /** Model answer for the whole goal: remaining active time, never a round-count product. */
   goalForecast?: { lowMs: number; highMs: number; at: number };
+  /** Why the goal has no number yet: the last attempt's outcome. */
+  goalForecastState?: { state: string; at: number };
   /** Active time this goal has already spent, including the running round. */
   goalSpentMs?: number;
   /** Goal round budget, when this turn belongs to a goal. */
@@ -139,7 +141,7 @@ export interface ProfileSummary {
   testedAt: number | null;
   sourceKind: 'heuristic' | 'public-measured' | 'local-measured';
 }
-export type ManagementAction = 'read' | 'saveConfig' | 'estimatorModel' | 'export' | 'resetCalibration' | 'importBaselines';
+export type ManagementAction = 'read' | 'saveConfig' | 'estimatorModel' | 'export' | 'resetCalibration' | 'goalForecast' | 'importBaselines';
 export interface ManagementResult {
   ok: boolean;
   message: string;

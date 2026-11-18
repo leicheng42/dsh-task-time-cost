@@ -172,4 +172,7 @@ export const styles = `
 .dte .dte-activity-band{display:flex;align-items:flex-end;gap:2px;height:16px;flex:1 1 auto;min-width:0}
 .dte .dte-activity-band i{flex:1;min-width:3px;border-radius:2px;background:color-mix(in srgb,var(--dte-accent, #3b82f6) 55%,transparent)}
 .dte .dte-activity-quiet{color:var(--dsw-alias-label-tertiary);font-size:11px;line-height:16px;white-space:nowrap}
+
+.dte .dte-goal-poke{margin-left:8px;font-size:11px;text-decoration:underline dotted;color:var(--dsw-alias-brand-primary,#3b82f6)}
+.dte .dte-goal-poke:disabled{opacity:.6}
 `;

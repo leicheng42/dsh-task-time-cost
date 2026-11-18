@@ -154,6 +154,7 @@ export function applyClient(ctx: Context): void {
     const [showHelp, setShowHelp] = React.useState(false);
     const [copied, setCopied] = React.useState(false);
     const [notifyOn, setNotifyOn] = React.useState(() => { try { return localStorage.getItem('dte.notify') === '1'; } catch { return false; } });
+    const [goalPoke, setGoalPoke] = React.useState<string | null>(null);
     const [view, setView] = React.useState<'summary' | 'more' | 'details' | 'settings'>('summary');
     const summary = React.useRef<HTMLButtonElement>(null);
     const panel = React.useRef<HTMLDivElement>(null);
@@ -345,6 +346,12 @@ export function applyClient(ctx: Context): void {
         } catch { /* clipboard unavailable; the panel text is still selectable */ }
       }
     };
+    const pokeGoalForecast = () => {
+      setGoalPoke(t('goalPoking'));
+      void manageRemote(remote, 'goalForecast', props.sessionId, new AbortController().signal)
+        .then(result => { setGoalPoke(result.ok ? t('goalPoked') : result.message || t('goalPokeFailed')); store.invalidate(); })
+        .catch(error => setGoalPoke(errorText(error, t)));
+    };
     const toggleNotify = () => {
       const next = !notifyOn;
       setNotifyOn(next);
@@ -408,7 +415,13 @@ export function applyClient(ctx: Context): void {
             <RoundStrip started={rounds?.started ?? 0} max={rounds?.max ?? 0} />
             <span className="dte-goal-spent dte-tabular">{formatDuration(snapshot.goalSpentMs ?? 0, t)}</span>
           </div>
-          {!goalForecast && <p className="dte-goal-line dte-muted">{t('goalNoForecast')}</p>}
+          {!goalForecast && <p className="dte-goal-line dte-muted">
+            {snapshot?.goalForecastState?.state === 'no-objective' ? t('goalNoText')
+              : snapshot?.goalForecastState?.state === 'no-model' ? t('goalNoModel')
+              : t('goalNoForecast')}
+            <button type="button" className="dte-link dte-goal-poke" disabled={goalPoke === t('goalPoking')} onClick={pokeGoalForecast}>{t('goalPoke')}</button>
+          </p>}
+          {goalPoke && goalPoke !== t('goalPoking') && <p className="dte-goal-line dte-muted">{goalPoke}</p>}
         </div>}
         {snapshot && (() => {
           const buckets = snapshot.activity ?? [];

@@ -47,6 +47,7 @@ export const snapshotSchema: z.ZodType<EstimateSnapshot> = z.object({
   goalId: z.string().optional(),
   goalForecast: z.object({ lowMs: z.number().finite(), highMs: z.number().finite(), at: z.number().finite() }).optional(),
   goalSpentMs: z.number().finite().optional(),
+  goalForecastState: z.object({ state: z.string(), at: z.number().finite() }).optional(),
   calibration: z.object({ samples: integer, medianRatio: z.number().finite().nullable(), underestimated: integer }).optional(),
   error: z.string().nullable(), reasons: z.array(z.string()), scope: z.literal('current_turn'),
 });
